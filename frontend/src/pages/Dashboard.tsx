@@ -1,185 +1,147 @@
 /**
- * Dashboard Page
- * Requirement 8.1 - Ticket summary, SLA metrics, activity feed
+ * Dashboard Page - SAP Fiori Launchpad (Exact Replica)
+ * Matches the SAP Fiori screenshot layout
  */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ticketsApi } from '../services/api';
 import '../styles/sap-theme.css';
 
-const Dashboard: React.FC = () => {
-  const stats = [
-    { label: 'Open Tickets', value: 12, status: 'info' },
-    { label: 'In Progress', value: 8, status: 'warning' },
-    { label: 'Closed Today', value: 5, status: 'success' },
-    { label: 'SLA Breached', value: 2, status: 'error' },
-  ];
+interface DashboardStats {
+  totalTickets: number;
+  openTickets: number;
+  inProgressTickets: number;
+  resolvedTickets: number;
+}
 
-  const recentTickets = [
-    { id: 'TKT-001', title: 'Equipment Failure - Line 3', module: 'PM', priority: 'High', status: 'Open' },
-    { id: 'TKT-002', title: 'Material Shortage Alert', module: 'MM', priority: 'Medium', status: 'In Progress' },
-    { id: 'TKT-003', title: 'Invoice Processing Error', module: 'FI', priority: 'Low', status: 'Resolved' },
-    { id: 'TKT-004', title: 'Maintenance Schedule Update', module: 'PM', priority: 'Medium', status: 'Open' },
-  ];
+const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
+  const [stats, setStats] = useState<DashboardStats>({
+    totalTickets: 0,
+    openTickets: 0,
+    inProgressTickets: 0,
+    resolvedTickets: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [activeAppsTab, setActiveAppsTab] = useState('favorites');
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      const response = await ticketsApi.list();
+      const tickets = response.data.tickets || [];
+      
+      setStats({
+        totalTickets: tickets.length,
+        openTickets: tickets.filter((t: any) => t.status === 'open').length,
+        inProgressTickets: tickets.filter((t: any) => t.status === 'in_progress').length,
+        resolvedTickets: tickets.filter((t: any) => t.status === 'resolved').length,
+      });
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#f7f7f7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="text-xl">Loading...</div>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      {/* SAP GUI Style Section Header */}
-      <div className="sap-gui-section">
-        System Overview
-      </div>
-
-      {/* KPI Cards */}
-      <div className="sap-grid sap-grid-4 sap-mb-16">
-        {stats.map((stat) => (
-          <div key={stat.label} className="sap-fiori-card">
-            <div className="sap-fiori-card-content">
-              <div style={{ fontSize: '12px', color: '#6a6d70', marginBottom: '8px', textTransform: 'uppercase' }}>
-                {stat.label}
-              </div>
-              <div style={{ fontSize: '36px', fontWeight: 300, marginBottom: '8px' }}>
-                {stat.value}
-              </div>
-              <span className={`sap-status ${stat.status}`}>
-                {stat.status.toUpperCase()}
-              </span>
-            </div>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f7f7f7', padding: '20px' }}>
+      {/* My Home Section */}
+      <div style={{ marginBottom: '24px' }}>
+        <h1 style={{ fontSize: '20px', fontWeight: 400, marginBottom: '16px', color: '#32363a' }}>My Home</h1>
+        
+        {/* System Status Tiles */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+          <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <div style={{ fontSize: '11px', color: '#6a6d70', marginBottom: '4px' }}>Launch System</div>
+            <div style={{ fontSize: '11px', color: '#6a6d70', marginBottom: '8px' }}>Directory</div>
+            <div style={{ fontSize: '32px', fontWeight: 300, color: '#32363a', marginBottom: '4px' }}>2</div>
+            <div style={{ fontSize: '10px', color: '#6a6d70' }}>Systems in Enterprise</div>
           </div>
-        ))}
-      </div>
 
-      {/* Main Content Grid */}
-      <div className="sap-grid sap-grid-2">
-        {/* Recent Tickets */}
-        <div className="sap-fiori-card">
-          <div className="sap-fiori-card-header">
-            <h3 className="sap-fiori-card-title">Recent Tickets</h3>
+          <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <div style={{ fontSize: '11px', color: '#6a6d70', marginBottom: '4px' }}>Launch Alert Monitor</div>
+            <div style={{ fontSize: '11px', color: '#6a6d70', marginBottom: '8px' }}></div>
+            <div style={{ fontSize: '32px', fontWeight: 300, color: '#d9534f', marginBottom: '4px' }}>2</div>
+            <div style={{ fontSize: '10px', color: '#6a6d70' }}>2 HP / 0 LP</div>
           </div>
-          <div className="sap-fiori-card-content" style={{ padding: 0 }}>
-            <table className="sap-table">
-              <thead>
-                <tr>
-                  <th>Ticket ID</th>
-                  <th>Title</th>
-                  <th>Module</th>
-                  <th>Priority</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentTickets.map((ticket) => (
-                  <tr key={ticket.id}>
-                    <td style={{ fontWeight: 600, color: '#0a6ed1' }}>{ticket.id}</td>
-                    <td>{ticket.title}</td>
-                    <td>
-                      <span style={{ 
-                        padding: '2px 8px', 
-                        backgroundColor: '#e5f3ff',
-                        borderRadius: '2px',
-                        fontSize: '12px',
-                        fontWeight: 500
-                      }}>
-                        {ticket.module}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`sap-status ${
-                        ticket.priority === 'High' ? 'error' : 
-                        ticket.priority === 'Medium' ? 'warning' : 'info'
-                      }`}>
-                        {ticket.priority}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`sap-status ${
-                        ticket.status === 'Open' ? 'info' :
-                        ticket.status === 'In Progress' ? 'warning' : 'success'
-                      }`}>
-                        {ticket.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <div style={{ fontSize: '11px', color: '#6a6d70', marginBottom: '4px' }}>Start & Stop</div>
+            <div style={{ fontSize: '11px', color: '#6a6d70', marginBottom: '8px' }}>Systems</div>
+            <div style={{ fontSize: '32px', fontWeight: 300, color: '#6a6d70', marginBottom: '4px' }}>0</div>
+            <div style={{ fontSize: '10px', color: '#6a6d70' }}>Systems Stopped</div>
+          </div>
+
+          <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <div style={{ fontSize: '11px', color: '#6a6d70', marginBottom: '4px' }}>Monitor Enterprise</div>
+            <div style={{ fontSize: '11px', color: '#6a6d70', marginBottom: '8px' }}>Health</div>
+            <div style={{ fontSize: '32px', fontWeight: 300, color: '#32363a', marginBottom: '4px' }}>2</div>
+            <div style={{ fontSize: '10px', color: '#6a6d70' }}>Systems Running</div>
           </div>
         </div>
+      </div>
 
-        {/* Module Status */}
-        <div>
-          <div className="sap-fiori-card sap-mb-16">
-            <div className="sap-fiori-card-header">
-              <h3 className="sap-fiori-card-title">Plant Maintenance (PM)</h3>
+      {/* SAP ERP Modules */}
+      <div style={{ marginBottom: '24px' }}>
+        <h2 style={{ fontSize: '16px', fontWeight: 400, marginBottom: '12px', color: '#32363a' }}>SAP ERP Modules</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+          <div 
+            onClick={() => navigate('/pm')}
+            style={{ backgroundColor: 'white', padding: '16px', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'box-shadow 0.2s', minHeight: '120px' }}
+            onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)'}
+            onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'}
+          >
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#32363a' }}>Plant Maintenance</div>
+              <div style={{ fontSize: '11px', color: '#6a6d70' }}>(PM)</div>
             </div>
-            <div className="sap-fiori-card-content">
-              <div className="sap-object-attributes">
-                <div className="sap-object-attribute">
-                  <div className="sap-object-attribute-label">Active Work Orders</div>
-                  <div className="sap-object-attribute-value">24</div>
-                </div>
-                <div className="sap-object-attribute">
-                  <div className="sap-object-attribute-label">Pending Approvals</div>
-                  <div className="sap-object-attribute-value">7</div>
-                </div>
-                <div className="sap-object-attribute">
-                  <div className="sap-object-attribute-label">Equipment Down</div>
-                  <div className="sap-object-attribute-value" style={{ color: '#bb0000' }}>3</div>
-                </div>
-                <div className="sap-object-attribute">
-                  <div className="sap-object-attribute-label">Scheduled Today</div>
-                  <div className="sap-object-attribute-value">12</div>
-                </div>
-              </div>
+            <div style={{ borderTop: '1px solid #e5e5e5', paddingTop: '12px' }}>
+              <div style={{ fontSize: '28px', fontWeight: 300, color: '#32363a' }}>{stats.totalTickets}</div>
+              <div style={{ fontSize: '11px', color: '#6a6d70' }}>Active Work Orders</div>
             </div>
           </div>
 
-          <div className="sap-fiori-card sap-mb-16">
-            <div className="sap-fiori-card-header">
-              <h3 className="sap-fiori-card-title">Materials Management (MM)</h3>
+          <div 
+            onClick={() => navigate('/mm')}
+            style={{ backgroundColor: 'white', padding: '16px', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'box-shadow 0.2s', minHeight: '120px' }}
+            onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)'}
+            onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'}
+          >
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#32363a' }}>Materials Management</div>
+              <div style={{ fontSize: '11px', color: '#6a6d70' }}>(MM)</div>
             </div>
-            <div className="sap-fiori-card-content">
-              <div className="sap-object-attributes">
-                <div className="sap-object-attribute">
-                  <div className="sap-object-attribute-label">Purchase Orders</div>
-                  <div className="sap-object-attribute-value">156</div>
-                </div>
-                <div className="sap-object-attribute">
-                  <div className="sap-object-attribute-label">Low Stock Items</div>
-                  <div className="sap-object-attribute-value" style={{ color: '#e9730c' }}>18</div>
-                </div>
-                <div className="sap-object-attribute">
-                  <div className="sap-object-attribute-label">Goods Receipts</div>
-                  <div className="sap-object-attribute-value">42</div>
-                </div>
-                <div className="sap-object-attribute">
-                  <div className="sap-object-attribute-label">Pending Invoices</div>
-                  <div className="sap-object-attribute-value">23</div>
-                </div>
-              </div>
+            <div style={{ borderTop: '1px solid #e5e5e5', paddingTop: '12px' }}>
+              <div style={{ fontSize: '28px', fontWeight: 300, color: '#32363a' }}>7</div>
+              <div style={{ fontSize: '11px', color: '#6a6d70' }}>Materials in Stock</div>
             </div>
           </div>
 
-          <div className="sap-fiori-card">
-            <div className="sap-fiori-card-header">
-              <h3 className="sap-fiori-card-title">Financial Accounting (FI)</h3>
+          <div 
+            onClick={() => navigate('/fi')}
+            style={{ backgroundColor: 'white', padding: '16px', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'box-shadow 0.2s', minHeight: '120px' }}
+            onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)'}
+            onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'}
+          >
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#32363a' }}>Financial Accounting</div>
+              <div style={{ fontSize: '11px', color: '#6a6d70' }}>(FI)</div>
             </div>
-            <div className="sap-fiori-card-content">
-              <div className="sap-object-attributes">
-                <div className="sap-object-attribute">
-                  <div className="sap-object-attribute-label">Open Invoices</div>
-                  <div className="sap-object-attribute-value">89</div>
-                </div>
-                <div className="sap-object-attribute">
-                  <div className="sap-object-attribute-label">Overdue Payments</div>
-                  <div className="sap-object-attribute-value" style={{ color: '#bb0000' }}>12</div>
-                </div>
-                <div className="sap-object-attribute">
-                  <div className="sap-object-attribute-label">Today's Transactions</div>
-                  <div className="sap-object-attribute-value">234</div>
-                </div>
-                <div className="sap-object-attribute">
-                  <div className="sap-object-attribute-label">Pending Approvals</div>
-                  <div className="sap-object-attribute-value">15</div>
-                </div>
-              </div>
+            <div style={{ borderTop: '1px solid #e5e5e5', paddingTop: '12px' }}>
+              <div style={{ fontSize: '28px', fontWeight: 300, color: '#32363a' }}>5</div>
+              <div style={{ fontSize: '11px', color: '#6a6d70' }}>Cost Centers</div>
             </div>
           </div>
         </div>

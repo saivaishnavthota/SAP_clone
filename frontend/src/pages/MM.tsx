@@ -5,6 +5,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { mmApi } from '../services/api';
+import { useSAPDialog } from '../hooks/useSAPDialog';
+import { useSAPToast } from '../hooks/useSAPToast';
+import SAPDialog from '../components/SAPDialog';
+import SAPToast from '../components/SAPToast';
+import SAPFormDialog from '../components/SAPFormDialog';
 import '../styles/sap-theme.css';
 
 const MM: React.FC = () => {
@@ -16,6 +21,9 @@ const MM: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [descriptionSearch, setDescriptionSearch] = useState('');
+  const [showCreateMaterialModal, setShowCreateMaterialModal] = useState(false);
+  const { dialogState, showAlert, handleClose: closeDialog } = useSAPDialog();
+  const { toastState, showSuccess, showError, handleClose: closeToast } = useSAPToast();
 
   useEffect(() => {
     loadData();
@@ -37,46 +45,39 @@ const MM: React.FC = () => {
     }
   };
 
-  const handleCreateMaterial = async () => {
-    const description = prompt('Enter Material Description:');
-    const quantity = prompt('Enter Initial Quantity:');
-    const unit = prompt('Enter Unit of Measure (e.g., KG, L, PC):');
-    const reorderLevel = prompt('Enter Reorder Level:');
-    const location = prompt('Enter Storage Location:');
-    
-    if (!description || !quantity || !unit || !reorderLevel || !location) return;
-
+  const handleCreateMaterial = async (data: any) => {
     try {
       await mmApi.createMaterial({
-        description: description,
-        quantity: parseInt(quantity),
-        unit_of_measure: unit,
-        reorder_level: parseInt(reorderLevel),
-        storage_location: location
+        description: data.description,
+        quantity: parseInt(data.quantity),
+        unit_of_measure: data.unit,
+        reorder_level: parseInt(data.reorderLevel),
+        storage_location: data.location
       });
       await loadData();
-      alert('Material created successfully!');
+      setShowCreateMaterialModal(false);
+      showSuccess('Material created successfully!');
     } catch (error) {
-      alert('Failed to create material');
+      showError('Failed to create material');
     }
   };
 
   const handleChangeMaterial = () => {
     if (!selectedMaterial) {
-      alert('Please select a material first');
+      showAlert('Warning', 'Please select a material first');
       return;
     }
-    alert(`Change material ${selectedMaterial} - Feature coming soon`);
+    showAlert('Change Material', `Change material ${selectedMaterial} - Feature coming soon`);
   };
 
   const handleDisplayMaterial = () => {
     if (!selectedMaterial) {
-      alert('Please select a material first');
+      showAlert('Warning', 'Please select a material first');
       return;
     }
     const material = materials.find(m => m.material_id === selectedMaterial);
     if (material) {
-      alert(`Material Details:\nID: ${material.material_id}\nDescription: ${material.description}\nQuantity: ${material.quantity} ${material.unit_of_measure}\nReorder Level: ${material.reorder_level}\nLocation: ${material.storage_location}`);
+      showAlert('Material Details', `ID: ${material.material_id}\nDescription: ${material.description}\nQuantity: ${material.quantity} ${material.unit_of_measure}\nReorder Level: ${material.reorder_level}\nLocation: ${material.storage_location}`);
     }
   };
 
@@ -93,40 +94,17 @@ const MM: React.FC = () => {
   };
 
   const handlePrint = () => {
-    alert('Print functionality - Generating report...');
+    showAlert('Print', 'Print functionality - Generating report...');
   };
 
   const handleReport = () => {
-    alert('Report functionality - Opening report generator...');
+    showAlert('Report', 'Report functionality - Opening report generator...');
   };
 
   return (
     <div>
-      {/* SAP GUI Style Toolbar */}
-      <div className="sap-toolbar">
-        <button className="sap-toolbar-button primary" onClick={handleCreateMaterial}>
-          <span>📄</span> Create
-        </button>
-        <button className="sap-toolbar-button" onClick={handleChangeMaterial}>
-          <span>✏️</span> Change
-        </button>
-        <button className="sap-toolbar-button" onClick={handleDisplayMaterial}>
-          <span>👁️</span> Display
-        </button>
-        <div style={{ width: '1px', height: '24px', backgroundColor: '#d9d9d9', margin: '0 4px' }}></div>
-        <button className="sap-toolbar-button" onClick={handleSearch}>
-          <span>🔍</span> Find
-        </button>
-        <button className="sap-toolbar-button" onClick={handlePrint}>
-          <span>🖨️</span> Print
-        </button>
-        <button className="sap-toolbar-button" onClick={handleReport}>
-          <span>📊</span> Report
-        </button>
-      </div>
-
       {/* SAP GUI Container */}
-      <div className="sap-gui-container" style={{ marginTop: '16px' }}>
+      <div className="sap-gui-container">
         {/* Section Header */}
         <div className="sap-gui-section">
           Materials Management - Master Data
@@ -305,7 +283,7 @@ const MM: React.FC = () => {
                         <button 
                           className="sap-toolbar-button" 
                           style={{ padding: '4px 8px', fontSize: '12px' }}
-                          onClick={() => alert(`Requisition Details:\nID: ${po.requisition_id}\nMaterial: ${po.material_id}\nQuantity: ${po.quantity}\nJustification: ${po.justification}`)}
+                          onClick={() => showAlert('Requisition Details', `ID: ${po.requisition_id}\nMaterial: ${po.material_id}\nQuantity: ${po.quantity}\nJustification: ${po.justification}`)}
                         >
                           View
                         </button>
@@ -359,6 +337,52 @@ const MM: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* SAP Dialogs */}
+      <SAPDialog
+        isOpen={dialogState.isOpen}
+        title={dialogState.title}
+        message={dialogState.message}
+        type={dialogState.type}
+        onClose={closeDialog}
+        defaultValue={dialogState.defaultValue}
+        inputLabel={dialogState.inputLabel}
+      />
+
+      <SAPToast
+        isOpen={toastState.isOpen}
+        message={toastState.message}
+        type={toastState.type}
+        onClose={closeToast}
+      />
+
+      {/* Create Material Modal */}
+      <SAPFormDialog
+        isOpen={showCreateMaterialModal}
+        title="Create Material"
+        fields={[
+          { name: 'description', label: 'Material Description', type: 'text', required: true },
+          { name: 'quantity', label: 'Initial Quantity', type: 'number', required: true },
+          { 
+            name: 'unit', 
+            label: 'Unit of Measure', 
+            type: 'select', 
+            required: true,
+            options: [
+              { value: 'KG', label: 'Kilogram (KG)' },
+              { value: 'L', label: 'Liter (L)' },
+              { value: 'PC', label: 'Piece (PC)' },
+              { value: 'M', label: 'Meter (M)' },
+              { value: 'TON', label: 'Ton (TON)' }
+            ]
+          },
+          { name: 'reorderLevel', label: 'Reorder Level', type: 'number', required: true },
+          { name: 'location', label: 'Storage Location', type: 'text', required: true }
+        ]}
+        onSubmit={handleCreateMaterial}
+        onCancel={() => setShowCreateMaterialModal(false)}
+        submitLabel="Create"
+      />
     </div>
   );
 };

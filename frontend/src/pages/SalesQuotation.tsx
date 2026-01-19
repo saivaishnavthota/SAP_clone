@@ -4,6 +4,10 @@
  */
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useSAPDialog } from '../hooks/useSAPDialog';
+import { useSAPToast } from '../hooks/useSAPToast';
+import SAPDialog from '../components/SAPDialog';
+import SAPToast from '../components/SAPToast';
 import '../styles/sap-theme.css';
 
 interface QuotationItem {
@@ -21,6 +25,8 @@ const SalesQuotation: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('general');
   const [isEditing, setIsEditing] = useState(false);
+  const { dialogState, showAlert, showConfirm, handleClose: closeDialog } = useSAPDialog();
+  const { toastState, showSuccess, handleClose: closeToast } = useSAPToast();
 
   const [quotation, setQuotation] = useState({
     id: id || '20000018',
@@ -70,26 +76,26 @@ const SalesQuotation: React.FC = () => {
 
   const handleSave = () => {
     setIsEditing(false);
-    // Save logic here
-    alert('Quotation saved successfully!');
+    showSuccess('Quotation saved successfully!');
   };
 
   const handleCreateSubsequentOrder = () => {
-    alert('Creating subsequent order...');
+    showAlert('Create Subsequent Order', 'Creating subsequent order...');
   };
 
   const handleUpdatePrices = () => {
-    alert('Updating prices...');
+    showAlert('Update Prices', 'Updating prices...');
   };
 
-  const handleRejectAllItems = () => {
-    if (confirm('Are you sure you want to reject all items?')) {
-      alert('All items rejected');
+  const handleRejectAllItems = async () => {
+    const confirmed = await showConfirm('Reject All Items', 'Are you sure you want to reject all items?');
+    if (confirmed) {
+      showSuccess('All items rejected');
     }
   };
 
   const handleDisplayChangeLog = () => {
-    alert('Displaying change log...');
+    showAlert('Change Log', 'Displaying change log...');
   };
 
   const tabs = [
@@ -432,6 +438,24 @@ const SalesQuotation: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* SAP Dialogs */}
+      <SAPDialog
+        isOpen={dialogState.isOpen}
+        title={dialogState.title}
+        message={dialogState.message}
+        type={dialogState.type}
+        onClose={closeDialog}
+        defaultValue={dialogState.defaultValue}
+        inputLabel={dialogState.inputLabel}
+      />
+
+      <SAPToast
+        isOpen={toastState.isOpen}
+        message={toastState.message}
+        type={toastState.type}
+        onClose={closeToast}
+      />
     </div>
   );
 };

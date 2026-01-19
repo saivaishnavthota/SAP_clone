@@ -5,6 +5,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { fiApi } from '../services/api';
+import { useSAPDialog } from '../hooks/useSAPDialog';
+import { useSAPToast } from '../hooks/useSAPToast';
+import SAPDialog from '../components/SAPDialog';
+import SAPToast from '../components/SAPToast';
+import SAPFormDialog from '../components/SAPFormDialog';
 import '../styles/sap-theme.css';
 
 const FI: React.FC = () => {
@@ -14,6 +19,9 @@ const FI: React.FC = () => {
   const [costCenters, setCostCenters] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showCreateCostCenterModal, setShowCreateCostCenterModal] = useState(false);
+  const { dialogState, showAlert, showPrompt, showConfirm, handleClose: closeDialog } = useSAPDialog();
+  const { toastState, showSuccess, showError, handleClose: closeToast } = useSAPToast();
 
   useEffect(() => {
     loadData();
@@ -36,76 +44,73 @@ const FI: React.FC = () => {
   };
 
   const handleApprove = async (approvalId: string) => {
+    const confirmed = await showConfirm('Approve Request', 'Are you sure you want to approve this request?');
+    if (!confirmed) return;
+
     try {
       await fiApi.approveRequest(approvalId, user?.username || 'system', 'Approved via UI');
       await loadData();
-      alert('Request approved successfully!');
+      showSuccess('Request approved successfully!');
     } catch (error) {
-      alert('Failed to approve request');
+      showError('Failed to approve request');
     }
   };
 
   const handleReject = async (approvalId: string) => {
-    const reason = prompt('Enter rejection reason:');
+    const reason = await showPrompt('Reject Request', 'Enter rejection reason:', '', 'Reason');
     if (!reason) return;
     
     try {
       await fiApi.rejectRequest(approvalId, user?.username || 'system', reason);
       await loadData();
-      alert('Request rejected');
+      showSuccess('Request rejected');
     } catch (error) {
-      alert('Failed to reject request');
+      showError('Failed to reject request');
     }
   };
 
   const handlePostDocument = async () => {
-    alert('Post Document - Feature coming soon');
+    showAlert('Post Document', 'Feature coming soon');
   };
 
   const handleDisplay = () => {
-    alert('Display - Feature coming soon');
+    showAlert('Display', 'Feature coming soon');
   };
 
   const handleChange = () => {
-    alert('Change - Feature coming soon');
+    showAlert('Change', 'Feature coming soon');
   };
 
   const handleReports = () => {
-    alert('Reports - Opening report generator...');
+    showAlert('Reports', 'Opening report generator...');
   };
 
   const handleAnalysis = () => {
-    alert('Analysis - Opening analytics dashboard...');
+    showAlert('Analysis', 'Opening analytics dashboard...');
   };
 
   const handlePrint = () => {
-    alert('Print - Generating printable report...');
+    showAlert('Print', 'Generating printable report...');
   };
 
-  const handleCreateCostCenter = async () => {
-    const name = prompt('Enter Cost Center Name:');
-    const budgetAmount = prompt('Enter Budget Amount:');
-    const fiscalYear = prompt('Enter Fiscal Year (e.g., 2025):');
-    const manager = prompt('Enter Responsible Manager:');
-    
-    if (!name || !budgetAmount || !fiscalYear || !manager) return;
-
+  const handleCreateCostCenter = async (data: any) => {
     try {
       await fiApi.createCostCenter({
-        name: name,
-        budget_amount: parseFloat(budgetAmount),
-        fiscal_year: parseInt(fiscalYear),
-        responsible_manager: manager
+        name: data.name,
+        budget_amount: parseFloat(data.budgetAmount),
+        fiscal_year: parseInt(data.fiscalYear),
+        responsible_manager: data.manager
       });
       await loadData();
-      alert('Cost center created successfully!');
+      setShowCreateCostCenterModal(false);
+      showSuccess('Cost center created successfully!');
     } catch (error) {
-      alert('Failed to create cost center');
+      showError('Failed to create cost center');
     }
   };
 
   const handleSearchAccount = () => {
-    alert('Search Account - Feature coming soon');
+    showAlert('Search Account', 'Feature coming soon');
   };
 
   const glAccounts = [
@@ -118,31 +123,8 @@ const FI: React.FC = () => {
 
   return (
     <div>
-      {/* SAP GUI Toolbar */}
-      <div className="sap-toolbar">
-        <button className="sap-toolbar-button primary" onClick={handlePostDocument}>
-          <span>📝</span> Post Document
-        </button>
-        <button className="sap-toolbar-button" onClick={handleDisplay}>
-          <span>👁️</span> Display
-        </button>
-        <button className="sap-toolbar-button" onClick={handleChange}>
-          <span>✏️</span> Change
-        </button>
-        <div style={{ width: '1px', height: '24px', backgroundColor: '#d9d9d9', margin: '0 4px' }}></div>
-        <button className="sap-toolbar-button" onClick={handleReports}>
-          <span>📊</span> Reports
-        </button>
-        <button className="sap-toolbar-button" onClick={handleAnalysis}>
-          <span>📈</span> Analysis
-        </button>
-        <button className="sap-toolbar-button" onClick={handlePrint}>
-          <span>🖨️</span> Print
-        </button>
-      </div>
-
       {/* SAP GUI Container */}
-      <div className="sap-gui-container" style={{ marginTop: '16px' }}>
+      <div className="sap-gui-container">
         <div className="sap-gui-section">
           Financial Accounting - FI Module
         </div>
@@ -249,7 +231,7 @@ const FI: React.FC = () => {
           <div className="sap-gui-panel">
             <div className="sap-flex-between" style={{ marginBottom: '16px' }}>
               <h3 style={{ margin: 0 }}>Cost Center Overview</h3>
-              <button className="sap-toolbar-button primary" onClick={handleCreateCostCenter}>
+              <button className="sap-toolbar-button primary" onClick={() => setShowCreateCostCenterModal(true)}>
                 + Create Cost Center
               </button>
             </div>
@@ -440,6 +422,39 @@ const FI: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* SAP Dialogs */}
+      <SAPDialog
+        isOpen={dialogState.isOpen}
+        title={dialogState.title}
+        message={dialogState.message}
+        type={dialogState.type}
+        onClose={closeDialog}
+        defaultValue={dialogState.defaultValue}
+        inputLabel={dialogState.inputLabel}
+      />
+
+      <SAPToast
+        isOpen={toastState.isOpen}
+        message={toastState.message}
+        type={toastState.type}
+        onClose={closeToast}
+      />
+
+      {/* Create Cost Center Modal */}
+      <SAPFormDialog
+        isOpen={showCreateCostCenterModal}
+        title="Create Cost Center"
+        fields={[
+          { name: 'name', label: 'Cost Center Name', type: 'text', required: true },
+          { name: 'budgetAmount', label: 'Budget Amount (USD)', type: 'number', required: true },
+          { name: 'fiscalYear', label: 'Fiscal Year', type: 'number', required: true, defaultValue: 2025 },
+          { name: 'manager', label: 'Responsible Manager', type: 'text', required: true }
+        ]}
+        onSubmit={handleCreateCostCenter}
+        onCancel={() => setShowCreateCostCenterModal(false)}
+        submitLabel="Create"
+      />
     </div>
   );
 };

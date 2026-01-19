@@ -4,7 +4,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import Layout from './components/Layout';
+import TopNavLayout from './components/TopNavLayout';
 import Login from './pages/Login';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
@@ -31,20 +31,30 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      {/* All pages with top navigation */}
       <Route
         path="/"
         element={
           <ProtectedRoute>
-            <Layout />
+            <TopNavLayout />
           </ProtectedRoute>
         }
       >
-        <Route index element={<Home />} />
+        <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="home" element={<Home />} />
         <Route path="tickets" element={<Tickets />} />
         <Route path="pm" element={<PM />} />
         <Route path="mm" element={<MM />} />
         <Route path="fi" element={<FI />} />
+        <Route path="analytics" element={<div style={{padding: '20px'}}>Analytics Page</div>} />
+        <Route path="billing" element={<div style={{padding: '20px'}}>Billing Page</div>} />
+        <Route path="bpm" element={<div style={{padding: '20px'}}>Business Process Management</div>} />
+        <Route path="credit" element={<div style={{padding: '20px'}}>Credit Management</div>} />
+        <Route path="returns" element={<div style={{padding: '20px'}}>Customer Returns</div>} />
+        <Route path="employee" element={<div style={{padding: '20px'}}>Employee Situation Handling</div>} />
+        <Route path="sales" element={<div style={{padding: '20px'}}>Internal Sales</div>} />
+        <Route path="sales-pro" element={<div style={{padding: '20px'}}>Internal Sales - Professional Services</div>} />
       </Route>
     </Routes>
   );
