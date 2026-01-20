@@ -144,6 +144,22 @@ const Dashboard: React.FC = () => {
               <div style={{ fontSize: '11px', color: '#6a6d70' }}>Cost Centers</div>
             </div>
           </div>
+
+          <div 
+            onClick={() => navigate('/electricity')}
+            style={{ backgroundColor: 'white', padding: '16px', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'box-shadow 0.2s', minHeight: '120px', border: '2px solid #1890ff' }}
+            onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)'}
+            onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'}
+          >
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#1890ff' }}>⚡ Electricity Load Requests</div>
+              <div style={{ fontSize: '11px', color: '#6a6d70' }}>MuleSoft Integration</div>
+            </div>
+            <div style={{ borderTop: '1px solid #e5e5e5', paddingTop: '12px' }}>
+              <div style={{ fontSize: '28px', fontWeight: 300, color: '#1890ff' }}>NEW</div>
+              <div style={{ fontSize: '11px', color: '#6a6d70' }}>Load Enhancement Portal</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

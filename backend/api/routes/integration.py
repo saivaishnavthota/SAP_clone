@@ -3,9 +3,14 @@ Integration Endpoints API routes.
 SAP ERP API - For Camel flows and external system integration
 """
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Query, Depends, Request
+from pydantic import BaseModel, Field
 from typing import Optional, List, Any
+from sqlalchemy.ext.asyncio import AsyncSession
+import xml.etree.ElementTree as ET
+
+from backend.db.database import get_db
+from backend.services.electricity_service import ElectricityService, ElectricityLoadRequest
 
 
 router = APIRouter(prefix="/integration", tags=["Integration"])
@@ -59,6 +64,31 @@ class WebhookResponse(BaseModel):
     webhook_id: str
     processed_at: str
     status: str
+
+
+class ElectricityLoadRequestPayload(BaseModel):
+    """Electricity load enhancement request from MuleSoft"""
+    request_id: str = Field(..., alias="RequestID")
+    customer_id: str = Field(..., alias="CustomerID")
+    current_load: float = Field(..., alias="CurrentLoad")
+    requested_load: float = Field(..., alias="RequestedLoad")
+    connection_type: str = Field(..., alias="ConnectionType")
+    city: str = Field(..., alias="City")
+    pin_code: str = Field(..., alias="PinCode")
+    
+    class Config:
+        populate_by_name = True
+
+
+class ElectricityLoadResponse(BaseModel):
+    status: str
+    request_id: str
+    customer_id: str
+    estimated_cost: float
+    priority: str
+    tickets_created: dict
+    workflow_status: str
+    next_steps: List[str]
 
 
 # Demo change tracking - matches actual data
@@ -214,3 +244,114 @@ async def get_sync_status(
         statuses = [s for s in statuses if s["system"] == system]
     
     return {"sync_statuses": statuses}
+
+
+@router.post("/mulesoft/load-request", response_model=ElectricityLoadResponse)
+async def receive_electricity_load_request(
+    payload: ElectricityLoadRequestPayload,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Receive electricity load enhancement request from MuleSoft.
+    
+    This endpoint processes load enhancement requests and:
+    - Creates PM ticket for field work order
+    - Creates FI ticket for cost approval (if needed)
+    - Creates MM ticket for equipment procurement (if needed)
+    - Initiates approval workflow
+    - Returns estimated cost and timeline
+    """
+    try:
+        electricity_service = ElectricityService(db)
+        
+        load_request = ElectricityLoadRequest(
+            request_id=payload.request_id,
+            customer_id=payload.customer_id,
+            current_load=payload.current_load,
+            requested_load=payload.requested_load,
+            connection_type=payload.connection_type,
+            city=payload.city,
+            pin_code=payload.pin_code,
+        )
+        
+        result = await electricity_service.process_load_request(load_request)
+        
+        return ElectricityLoadResponse(**result)
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process load request: {str(e)}"
+        )
+
+
+@router.post("/mulesoft/load-request/xml", response_model=ElectricityLoadResponse)
+async def receive_electricity_load_request_xml(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Receive electricity load enhancement request from MuleSoft in XML format.
+    
+    Accepts XML payload like:
+    ```xml
+    <ElectricityLoadRequest>
+        <RequestID>SF-REQ-10021</RequestID>
+        <CustomerID>CUST-88991</CustomerID>
+        <CurrentLoad>5</CurrentLoad>
+        <RequestedLoad>10</RequestedLoad>
+        <ConnectionType>RESIDENTIAL</ConnectionType>
+        <City>Hyderabad</City>
+        <PinCode>500081</PinCode>
+    </ElectricityLoadRequest>
+    ```
+    """
+    try:
+        # Read XML from request body
+        xml_payload = await request.body()
+        xml_string = xml_payload.decode('utf-8')
+        
+        # Parse XML
+        root = ET.fromstring(xml_string)
+        
+        # Extract fields
+        request_id = root.find("RequestID").text
+        customer_id = root.find("CustomerID").text
+        current_load = float(root.find("CurrentLoad").text)
+        requested_load = float(root.find("RequestedLoad").text)
+        connection_type = root.find("ConnectionType").text
+        city = root.find("City").text
+        pin_code = root.find("PinCode").text
+        
+        electricity_service = ElectricityService(db)
+        
+        load_request = ElectricityLoadRequest(
+            request_id=request_id,
+            customer_id=customer_id,
+            current_load=current_load,
+            requested_load=requested_load,
+            connection_type=connection_type,
+            city=city,
+            pin_code=pin_code,
+        )
+        
+        result = await electricity_service.process_load_request(load_request)
+        
+        return ElectricityLoadResponse(**result)
+    
+    except ET.ParseError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid XML format: {str(e)}"
+        )
+    except AttributeError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing required XML field: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process load request: {str(e)}"
+        )
+

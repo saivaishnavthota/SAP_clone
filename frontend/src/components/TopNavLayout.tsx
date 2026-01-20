@@ -16,6 +16,7 @@ const TopNavLayout: React.FC = () => {
     { label: 'Plant Maintenance (PM)', path: '/pm' },
     { label: 'Materials Management (MM)', path: '/mm' },
     { label: 'Financial Accounting (FI)', path: '/fi' },
+    { label: '⚡ Electricity Load Requests', path: '/electricity' },
   ];
 
   const handleLogout = () => {
