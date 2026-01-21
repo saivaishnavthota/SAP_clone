@@ -3,6 +3,8 @@
  * Requirement 8.1 - API client with JWT interceptor
  */
 import axios, { AxiosInstance, AxiosError } from 'axios';
+import logger from '../utils/logger';
+import { trackApiCall } from '../utils/performance';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8100/api/v1';
 
@@ -33,23 +35,57 @@ export const getAuthToken = (): string | null => {
   return authToken;
 };
 
-// Request interceptor - add JWT token
+// Request interceptor - add JWT token and logging
 api.interceptors.request.use(
   (config) => {
     const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Log API call
+    logger.apiCall(
+      config.method?.toUpperCase() || 'UNKNOWN',
+      config.url || 'unknown',
+      config.data,
+      'API'
+    );
+
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    logger.error('API request interceptor error', error, 'API');
+    return Promise.reject(error);
+  }
 );
 
-// Response interceptor - handle errors
+// Response interceptor - handle errors and logging
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Log successful API response
+    logger.apiSuccess(
+      response.config.method?.toUpperCase() || 'UNKNOWN',
+      response.config.url || 'unknown',
+      {
+        status: response.status,
+        statusText: response.statusText,
+        dataSize: JSON.stringify(response.data).length,
+      },
+      'API'
+    );
+    return response;
+  },
   (error: AxiosError) => {
+    // Log API error
+    logger.apiError(
+      error.config?.method?.toUpperCase() || 'UNKNOWN',
+      error.config?.url || 'unknown',
+      error,
+      'API'
+    );
+
     if (error.response?.status === 401) {
+      logger.warn('Authentication failed, redirecting to login', { status: 401 }, 'AUTH');
       setAuthToken(null);
       window.location.href = '/login';
     }
@@ -57,26 +93,31 @@ api.interceptors.response.use(
   }
 );
 
+// Enhanced API call wrapper with performance tracking
+const apiCall = async <T>(call: () => Promise<T>, method: string, url: string): Promise<T> => {
+  return trackApiCall(method, url, call);
+};
+
 // Auth API
 export const authApi = {
   login: (username: string, password: string) =>
-    api.post('/auth/login', { username, password }),
+    apiCall(() => api.post('/auth/login', { username, password }), 'POST', '/auth/login'),
   refresh: (token: string) =>
-    api.post('/auth/refresh', { token }),
+    apiCall(() => api.post('/auth/refresh', { token }), 'POST', '/auth/refresh'),
 };
 
 // Tickets API
 export const ticketsApi = {
   list: (params?: { module?: string; status?: string; page?: number; limit?: number }) =>
-    api.get('/tickets', { params }),
+    apiCall(() => api.get('/tickets', { params }), 'GET', '/tickets'),
   create: (data: { module: string; ticket_type: string; priority: string; title: string; description?: string; created_by: string }) =>
-    api.post('/tickets', data),
+    apiCall(() => api.post('/tickets', data), 'POST', '/tickets'),
   get: (ticketId: string) =>
-    api.get(`/tickets/${ticketId}`),
+    apiCall(() => api.get(`/tickets/${ticketId}`), 'GET', `/tickets/${ticketId}`),
   updateStatus: (ticketId: string, newStatus: string, changedBy: string, comment?: string) =>
-    api.patch(`/tickets/${ticketId}/status`, { new_status: newStatus, changed_by: changedBy, comment }),
+    apiCall(() => api.patch(`/tickets/${ticketId}/status`, { new_status: newStatus, changed_by: changedBy, comment }), 'PATCH', `/tickets/${ticketId}/status`),
   getAudit: (ticketId: string) =>
-    api.get(`/tickets/${ticketId}/audit`),
+    apiCall(() => api.get(`/tickets/${ticketId}/audit`), 'GET', `/tickets/${ticketId}/audit`),
 };
 
 // PM API

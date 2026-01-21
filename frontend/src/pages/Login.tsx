@@ -5,6 +5,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import logger from '../utils/logger';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -18,15 +19,15 @@ const Login: React.FC = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
-    console.log('Login attempt:', { username, password });
+
+    logger.userAction('Login form submitted', { username }, 'LOGIN');
 
     try {
       await login(username, password);
-      console.log('Login successful');
+      logger.info('Login successful, redirecting to dashboard', { username }, 'LOGIN');
       navigate('/');
     } catch (err: any) {
-      console.error('Login error:', err);
+      logger.error('Login failed', err, 'LOGIN');
       setError(err.response?.data?.detail || err.message || 'Login failed');
     } finally {
       setLoading(false);
@@ -41,22 +42,22 @@ const Login: React.FC = () => {
   ];
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center', 
+    <div style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
       minHeight: '100vh',
       backgroundColor: '#f0f2f5'
     }}>
-      <div style={{ 
-        backgroundColor: 'white', 
-        padding: '40px', 
+      <div style={{
+        backgroundColor: 'white',
+        padding: '40px',
         borderRadius: '8px',
         boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
         width: '400px'
       }}>
         <h1 style={{ textAlign: 'center', marginBottom: '24px' }}>SAP ERP Demo</h1>
-        
+
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', marginBottom: '8px' }}>Username</label>
@@ -68,7 +69,7 @@ const Login: React.FC = () => {
               required
             />
           </div>
-          
+
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', marginBottom: '8px' }}>Password</label>
             <input
@@ -79,11 +80,11 @@ const Login: React.FC = () => {
               required
             />
           </div>
-          
+
           {error && (
             <div style={{ color: 'red', marginBottom: '16px' }}>{error}</div>
           )}
-          
+
           <button
             type="submit"
             disabled={loading}
@@ -100,7 +101,7 @@ const Login: React.FC = () => {
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
-        
+
         <div style={{ marginTop: '24px' }}>
           <h4>Demo Users:</h4>
           <ul style={{ fontSize: '12px', color: '#666' }}>
