@@ -1,6 +1,6 @@
 /**
- * Electricity Load Requests Page
- * View and manage electricity load enhancement requests and their tickets
+ * Tickets Page
+ * View and manage all types of tickets: electricity load requests, user creation, password resets, and other tasks
  */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -45,7 +45,7 @@ const priorityColors: Record<string, string> = {
   P4: '#52c41a',
 };
 
-const ElectricityLoadRequests: React.FC = () => {
+const Tickets: React.FC = () => {
   const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,17 +80,11 @@ const ElectricityLoadRequests: React.FC = () => {
   const loadTickets = async () => {
     setLoading(true);
     try {
-      // Load all tickets and filter those related to electricity load requests
+      // Load all tickets (electricity load, user creation, password reset, etc.)
       const response = await ticketsApi.list({ limit: 100 });
       const allTickets = response.data.tickets;
       
-      // Filter tickets that are related to load enhancement
-      const loadTickets = allTickets.filter((t: Ticket) => 
-        t.title.toLowerCase().includes('load enhancement') ||
-        t.description?.toLowerCase().includes('electricity load')
-      );
-      
-      setTickets(loadTickets);
+      setTickets(allTickets);
     } catch (error) {
       console.error('Failed to load tickets:', error);
     } finally {
@@ -195,9 +189,9 @@ const ElectricityLoadRequests: React.FC = () => {
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>⚡ Electricity Load Requests</h1>
+            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>🎫 Tickets</h1>
             <p style={{ margin: '8px 0 0 0', color: '#666' }}>
-              Manage electricity load enhancement requests and track tickets across modules
+              Manage all tickets: electricity load requests, user creation, password resets, and other tasks
             </p>
           </div>
           <button
@@ -246,17 +240,17 @@ const ElectricityLoadRequests: React.FC = () => {
         </div>
       </div>
 
-      {/* Requests List */}
+      {/* Tickets List */}
       <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '24px', border: '1px solid #e8e8e8' }}>
-        <h2 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: 600 }}>Load Enhancement Requests</h2>
+        <h2 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: 600 }}>All Tickets</h2>
         
         {loading ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>Loading requests...</div>
+          <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>Loading tickets...</div>
         ) : tickets.length === 0 ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚡</div>
-            <div style={{ fontSize: '16px', marginBottom: '8px' }}>No load requests found</div>
-            <div style={{ fontSize: '14px', color: '#999' }}>Submit a new request to get started</div>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎫</div>
+            <div style={{ fontSize: '16px', marginBottom: '8px' }}>No tickets found</div>
+            <div style={{ fontSize: '14px', color: '#999' }}>Create a new ticket to get started</div>
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -524,4 +518,4 @@ const ElectricityLoadRequests: React.FC = () => {
   );
 };
 
-export default ElectricityLoadRequests;
+export default Tickets;

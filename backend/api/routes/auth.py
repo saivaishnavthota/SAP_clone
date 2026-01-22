@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import List
 
 from backend.services.auth_service import AuthService, Role, InvalidTokenError
+from backend.api.routes.users import USER_STORE
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -31,15 +32,6 @@ class RefreshRequest(BaseModel):
     token: str
 
 
-# Demo users for testing (in production, use a real user database)
-DEMO_USERS = {
-    "engineer": {"password": "engineer123", "roles": [Role.MAINTENANCE_ENGINEER]},
-    "manager": {"password": "manager123", "roles": [Role.STORE_MANAGER]},
-    "finance": {"password": "finance123", "roles": [Role.FINANCE_OFFICER]},
-    "admin": {"password": "admin123", "roles": [Role.ADMIN]},
-}
-
-
 def get_auth_service() -> AuthService:
     """Dependency to get auth service"""
     return AuthService()
@@ -58,8 +50,8 @@ async def login(
     username = request.username.strip()
     password = request.password.strip()
     
-    # Check demo users
-    user = DEMO_USERS.get(username)
+    # Check users from shared user store
+    user = USER_STORE.get(username)
     
     if not user or user["password"] != password:
         raise HTTPException(status_code=401, detail="Invalid credentials")

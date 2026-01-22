@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
 from backend.api.routes import (
-    auth, tickets, pm, mm, fi,
+    auth, tickets, pm, mm, fi, users,
     sales, inventory, finance, purchasing, production,
     customers, vendors, business_partners,
     reports, integration, system
@@ -30,6 +30,7 @@ app.add_middleware(
 # Register API routes under /api/v1 (existing routes)
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(tickets.router, prefix="/api/v1")
+app.include_router(users.router, prefix="/api/v1")
 app.include_router(pm.router, prefix="/api/v1")
 app.include_router(mm.router, prefix="/api/v1")
 app.include_router(fi.router, prefix="/api/v1")

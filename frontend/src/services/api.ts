@@ -165,4 +165,18 @@ export const fiApi = {
     api.post(`/fi/approval-requests/${approvalId}/reject`, { decided_by: decidedBy, comment }),
 };
 
+// Users API (Admin only)
+export const usersApi = {
+  list: () =>
+    apiCall(() => api.get('/users'), 'GET', '/users'),
+  create: (data: { username: string; password: string; roles: string[] }) =>
+    apiCall(() => api.post('/users', data), 'POST', '/users'),
+  get: (username: string) =>
+    apiCall(() => api.get(`/users/${username}`), 'GET', `/users/${username}`),
+  changePassword: (username: string, newPassword: string) =>
+    apiCall(() => api.patch(`/users/${username}/password`, { username, new_password: newPassword }), 'PATCH', `/users/${username}/password`),
+  delete: (username: string) =>
+    apiCall(() => api.delete(`/users/${username}`), 'DELETE', `/users/${username}`),
+};
+
 export default api;

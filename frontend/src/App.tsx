@@ -12,7 +12,8 @@ import Tickets from './pages/Tickets';
 import PM from './pages/PM';
 import MM from './pages/MM';
 import FI from './pages/FI';
-import ElectricityLoadRequests from './pages/ElectricityLoadRequests';
+import AllTickets from './pages/AllTickets';
+import UserManagement from './pages/UserManagement';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -48,7 +49,8 @@ const AppRoutes: React.FC = () => {
         <Route path="pm" element={<PM />} />
         <Route path="mm" element={<MM />} />
         <Route path="fi" element={<FI />} />
-        <Route path="electricity" element={<ElectricityLoadRequests />} />
+        <Route path="all-tickets" element={<AllTickets />} />
+        <Route path="user-management" element={<UserManagement />} />
         <Route path="analytics" element={<div style={{padding: '20px'}}>Analytics Page</div>} />
         <Route path="billing" element={<div style={{padding: '20px'}}>Billing Page</div>} />
         <Route path="bpm" element={<div style={{padding: '20px'}}>Business Process Management</div>} />
