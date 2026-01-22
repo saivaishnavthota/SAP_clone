@@ -3,6 +3,7 @@
  * View and manage electricity load enhancement requests and their tickets
  */
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ticketsApi } from '../services/api';
 import axios from 'axios';
 
@@ -45,11 +46,11 @@ const priorityColors: Record<string, string> = {
 };
 
 const ElectricityLoadRequests: React.FC = () => {
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [selectedCorrelationId, setSelectedCorrelationId] = useState<string | null>(null);
   const [form, setForm] = useState<LoadRequestForm>({
     request_id: `SF-REQ-${Date.now()}`,
     customer_id: '',
@@ -59,6 +60,18 @@ const ElectricityLoadRequests: React.FC = () => {
     city: '',
     pin_code: '',
   });
+
+  const handleViewInModule = (module: string) => {
+    const routes: Record<string, string> = {
+      PM: '/pm',
+      FI: '/fi',
+      MM: '/mm',
+    };
+    const route = routes[module];
+    if (route) {
+      navigate(route);
+    }
+  };
 
   useEffect(() => {
     loadTickets();
@@ -90,7 +103,7 @@ const ElectricityLoadRequests: React.FC = () => {
     setSubmitting(true);
     
     try {
-      const API_BASE = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:8100';
+      const API_BASE = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:2004';
       const response = await axios.post(
         `${API_BASE}/api/integration/mulesoft/load-request`,
         {
@@ -125,22 +138,6 @@ const ElectricityLoadRequests: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const getRelatedTickets = (correlationId: string) => {
-    return tickets.filter(t => t.correlation_id === correlationId);
-  };
-
-  const groupTicketsByRequest = () => {
-    const groups: Record<string, Ticket[]> = {};
-    tickets.forEach(ticket => {
-      const corrId = ticket.correlation_id || ticket.ticket_id;
-      if (!groups[corrId]) {
-        groups[corrId] = [];
-      }
-      groups[corrId].push(ticket);
-    });
-    return groups;
   };
 
   const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -192,8 +189,6 @@ const ElectricityLoadRequests: React.FC = () => {
     );
   };
 
-  const ticketGroups = groupTicketsByRequest();
-
   return (
     <div style={{ padding: '24px' }}>
       {/* Header */}
@@ -226,27 +221,27 @@ const ElectricityLoadRequests: React.FC = () => {
       {/* Stats Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
         <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #e8e8e8' }}>
-          <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>Total Requests</div>
-          <div style={{ fontSize: '28px', fontWeight: 600, color: '#1890ff' }}>
-            {Object.keys(ticketGroups).length}
-          </div>
-        </div>
-        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #e8e8e8' }}>
           <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>Total Tickets</div>
-          <div style={{ fontSize: '28px', fontWeight: 600, color: '#52c41a' }}>
+          <div style={{ fontSize: '28px', fontWeight: 600, color: '#1890ff' }}>
             {tickets.length}
           </div>
         </div>
         <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #e8e8e8' }}>
-          <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>Open Tickets</div>
-          <div style={{ fontSize: '28px', fontWeight: 600, color: '#faad14' }}>
-            {tickets.filter(t => t.status === 'Open').length}
+          <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>PM Tickets</div>
+          <div style={{ fontSize: '28px', fontWeight: 600, color: '#1890ff' }}>
+            {tickets.filter(t => t.module === 'PM').length}
           </div>
         </div>
         <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #e8e8e8' }}>
-          <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>Closed Tickets</div>
+          <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>FI Tickets</div>
           <div style={{ fontSize: '28px', fontWeight: 600, color: '#52c41a' }}>
-            {tickets.filter(t => t.status === 'Closed').length}
+            {tickets.filter(t => t.module === 'FI').length}
+          </div>
+        </div>
+        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #e8e8e8' }}>
+          <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>MM Tickets</div>
+          <div style={{ fontSize: '28px', fontWeight: 600, color: '#fa8c16' }}>
+            {tickets.filter(t => t.module === 'MM').length}
           </div>
         </div>
       </div>
@@ -257,108 +252,92 @@ const ElectricityLoadRequests: React.FC = () => {
         
         {loading ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>Loading requests...</div>
-        ) : Object.keys(ticketGroups).length === 0 ? (
+        ) : tickets.length === 0 ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚡</div>
             <div style={{ fontSize: '16px', marginBottom: '8px' }}>No load requests found</div>
             <div style={{ fontSize: '14px', color: '#999' }}>Submit a new request to get started</div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {Object.entries(ticketGroups).map(([correlationId, groupTickets]) => {
-              const mainTicket = groupTickets[0];
-              const isExpanded = selectedCorrelationId === correlationId;
-              
-              return (
-                <div
-                  key={correlationId}
-                  style={{
-                    border: '1px solid #e8e8e8',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {/* Request Header */}
-                  <div
-                    onClick={() => setSelectedCorrelationId(isExpanded ? null : correlationId)}
-                    style={{
-                      padding: '16px',
-                      backgroundColor: '#fafafa',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                        <span style={{ fontWeight: 600, fontSize: '14px' }}>
-                          {mainTicket.correlation_id || 'Request'}
-                        </span>
-                        <PriorityBadge priority={mainTicket.priority} />
-                        <span style={{ fontSize: '12px', color: '#666' }}>
-                          {groupTickets.length} ticket{groupTickets.length > 1 ? 's' : ''}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '13px', color: '#666' }}>
-                        Created: {new Date(mainTicket.created_at).toLocaleString()}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      {groupTickets.map(t => (
-                        <ModuleBadge key={t.ticket_id} module={t.module} />
-                      ))}
-                      <span style={{ fontSize: '20px', color: '#999' }}>
-                        {isExpanded ? '▼' : '▶'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Expanded Tickets */}
-                  {isExpanded && (
-                    <div style={{ padding: '16px' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid #e8e8e8' }}>
-                            <th style={{ padding: '8px', textAlign: 'left', fontSize: '12px', color: '#666' }}>Ticket ID</th>
-                            <th style={{ padding: '8px', textAlign: 'left', fontSize: '12px', color: '#666' }}>Module</th>
-                            <th style={{ padding: '8px', textAlign: 'left', fontSize: '12px', color: '#666' }}>Type</th>
-                            <th style={{ padding: '8px', textAlign: 'left', fontSize: '12px', color: '#666' }}>Title</th>
-                            <th style={{ padding: '8px', textAlign: 'center', fontSize: '12px', color: '#666' }}>Status</th>
-                            <th style={{ padding: '8px', textAlign: 'left', fontSize: '12px', color: '#666' }}>SLA Deadline</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {groupTickets.map(ticket => (
-                            <tr key={ticket.ticket_id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                              <td style={{ padding: '12px', fontSize: '13px', fontFamily: 'monospace' }}>
-                                {ticket.ticket_id}
-                              </td>
-                              <td style={{ padding: '12px' }}>
-                                <ModuleBadge module={ticket.module} />
-                              </td>
-                              <td style={{ padding: '12px', fontSize: '13px' }}>
-                                {ticket.ticket_type.replace(/_/g, ' ')}
-                              </td>
-                              <td style={{ padding: '12px', fontSize: '13px' }}>
-                                {ticket.title}
-                              </td>
-                              <td style={{ padding: '12px', textAlign: 'center' }}>
-                                <StatusBadge status={ticket.status} />
-                              </td>
-                              <td style={{ padding: '12px', fontSize: '13px', color: '#666' }}>
-                                {new Date(ticket.sla_deadline).toLocaleString()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #e8e8e8', backgroundColor: '#fafafa' }}>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '13px', fontWeight: 600, color: '#666' }}>Ticket ID</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '13px', fontWeight: 600, color: '#666' }}>Module</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '13px', fontWeight: 600, color: '#666' }}>Type</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '13px', fontWeight: 600, color: '#666' }}>Title</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '13px', fontWeight: 600, color: '#666' }}>Priority</th>
+                <th style={{ padding: '12px', textAlign: 'center', fontSize: '13px', fontWeight: 600, color: '#666' }}>Status</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '13px', fontWeight: 600, color: '#666' }}>Created</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '13px', fontWeight: 600, color: '#666' }}>SLA Deadline</th>
+                <th style={{ padding: '12px', textAlign: 'center', fontSize: '13px', fontWeight: 600, color: '#666' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tickets.map(ticket => (
+                <tr key={ticket.ticket_id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                  <td style={{ padding: '12px', fontSize: '13px', fontFamily: 'monospace', fontWeight: 500 }}>
+                    {ticket.ticket_id}
+                  </td>
+                  <td style={{ padding: '12px' }}>
+                    <ModuleBadge module={ticket.module} />
+                  </td>
+                  <td style={{ padding: '12px', fontSize: '13px' }}>
+                    {ticket.ticket_type.replace(/_/g, ' ')}
+                  </td>
+                  <td style={{ padding: '12px', fontSize: '13px', maxWidth: '300px' }}>
+                    {ticket.title}
+                  </td>
+                  <td style={{ padding: '12px' }}>
+                    <PriorityBadge priority={ticket.priority} />
+                  </td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                    <StatusBadge status={ticket.status} />
+                  </td>
+                  <td style={{ padding: '12px', fontSize: '13px', color: '#666' }}>
+                    {new Date(ticket.created_at).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    })}, {new Date(ticket.created_at).toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </td>
+                  <td style={{ padding: '12px', fontSize: '13px', color: '#666' }}>
+                    {new Date(ticket.sla_deadline).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    })}, {new Date(ticket.sla_deadline).toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                    <button
+                      onClick={() => handleViewInModule(ticket.module)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#1890ff',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                      }}
+                      title={`View in ${ticket.module} module`}
+                    >
+                      View in {ticket.module}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 

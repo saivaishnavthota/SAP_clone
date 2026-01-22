@@ -53,7 +53,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     try {
       // Use fetch directly to avoid any axios issues
-      const response = await fetch('http://localhost:8100/api/v1/auth/login', {
+      const response = await fetch('http://localhost:2004/api/v1/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

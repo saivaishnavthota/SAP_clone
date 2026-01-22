@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { pmApi } from '../services/api';
+import { pmApi, ticketsApi } from '../services/api';
 import { useSAPDialog } from '../hooks/useSAPDialog';
 import { useSAPToast } from '../hooks/useSAPToast';
 import SAPDialog from '../components/SAPDialog';
@@ -17,13 +17,14 @@ const PM: React.FC = () => {
   const [activeTab, setActiveTab] = useState('equipment');
   const [equipment, setEquipment] = useState<any[]>([]);
   const [workOrders, setWorkOrders] = useState<any[]>([]);
+  const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [descriptionSearch, setDescriptionSearch] = useState('');
   const [selectedEquipment, setSelectedEquipment] = useState<string | null>(null);
   const [showCreateWorkOrderModal, setShowCreateWorkOrderModal] = useState(false);
   const [showCreateEquipmentModal, setShowCreateEquipmentModal] = useState(false);
-  const { dialogState, showAlert, handleClose: closeDialog } = useSAPDialog();
+  const { dialogState, showAlert, showPrompt, handleClose: closeDialog } = useSAPDialog();
   const { toastState, showSuccess, showError, handleClose: closeToast } = useSAPToast();
 
   useEffect(() => {
@@ -33,12 +34,14 @@ const PM: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [equipmentRes, ordersRes] = await Promise.all([
+      const [equipmentRes, ordersRes, ticketsRes] = await Promise.all([
         pmApi.listAssets(),
-        pmApi.listMaintenanceOrders()
+        pmApi.listMaintenanceOrders(),
+        ticketsApi.list({ module: 'PM', limit: 100 })
       ]);
       setEquipment(equipmentRes.data.assets || []);
       setWorkOrders(ordersRes.data.orders || []);
+      setTickets(ticketsRes.data.tickets || []);
     } catch (error) {
       console.error('Failed to load PM data:', error);
     } finally {
@@ -100,6 +103,36 @@ const PM: React.FC = () => {
     const eq = equipment.find(e => e.asset_id === selectedEquipment);
     if (eq) {
       showAlert('Equipment Details', `ID: ${eq.asset_id}\nName: ${eq.name}\nType: ${eq.asset_type}\nLocation: ${eq.location}\nStatus: ${eq.status}`);
+    }
+  };
+
+  const handleViewTicketDetails = (ticket: any) => {
+    showAlert(
+      'Ticket Details',
+      `Ticket ID: ${ticket.ticket_id}\nType: ${ticket.ticket_type}\nTitle: ${ticket.title}\nDescription: ${ticket.description || 'N/A'}\nPriority: ${ticket.priority}\nStatus: ${ticket.status}\nCreated: ${new Date(ticket.created_at).toLocaleString()}\nSLA Deadline: ${new Date(ticket.sla_deadline).toLocaleString()}`
+    );
+  };
+
+  const handleUpdateTicketStatus = async (ticketId: string, currentStatus: string) => {
+    const statusOptions = ['Open', 'Assigned', 'In_Progress', 'Closed'];
+    const newStatus = await showPrompt(
+      'Update Ticket Status',
+      `Current Status: ${currentStatus}\n\nEnter new status (Open, Assigned, In_Progress, Closed):`,
+      '',
+      'New Status'
+    );
+    
+    if (!newStatus || !statusOptions.includes(newStatus)) {
+      if (newStatus) showError('Invalid status. Must be one of: Open, Assigned, In_Progress, Closed');
+      return;
+    }
+
+    try {
+      await ticketsApi.updateStatus(ticketId, newStatus, user?.username || 'system', 'Status updated from PM module');
+      await loadData();
+      showSuccess(`Ticket ${ticketId} status updated to ${newStatus}`);
+    } catch (error) {
+      showError('Failed to update ticket status');
     }
   };
 
@@ -253,7 +286,7 @@ const PM: React.FC = () => {
         {activeTab === 'workorders' && (
           <div className="sap-gui-panel">
             <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0 }}>Work Order Management</h3>
+              <h3 style={{ margin: 0 }}>Work Orders & Tickets</h3>
               <button className="sap-toolbar-button primary" onClick={() => setShowCreateWorkOrderModal(true)}>
                 + Create Work Order
               </button>
@@ -262,7 +295,7 @@ const PM: React.FC = () => {
             <div className="sap-grid sap-grid-4" style={{ marginBottom: '20px' }}>
               <div style={{ padding: '12px', backgroundColor: '#e5f3ff', borderRadius: '4px', textAlign: 'center' }}>
                 <div style={{ fontSize: '20px', fontWeight: 600, color: '#0a6ed1' }}>{workOrders.length}</div>
-                <div style={{ fontSize: '12px', color: '#6a6d70' }}>Total Active</div>
+                <div style={{ fontSize: '12px', color: '#6a6d70' }}>Work Orders</div>
               </div>
               <div style={{ padding: '12px', backgroundColor: '#fef7f1', borderRadius: '4px', textAlign: 'center' }}>
                 <div style={{ fontSize: '20px', fontWeight: 600, color: '#e9730c' }}>
@@ -272,13 +305,13 @@ const PM: React.FC = () => {
               </div>
               <div style={{ padding: '12px', backgroundColor: '#e5f5ed', borderRadius: '4px', textAlign: 'center' }}>
                 <div style={{ fontSize: '20px', fontWeight: 600, color: '#107e3e' }}>
-                  {workOrders.filter(wo => wo.status === 'completed').length}
+                  {tickets.length}
                 </div>
-                <div style={{ fontSize: '12px', color: '#6a6d70' }}>Completed</div>
+                <div style={{ fontSize: '12px', color: '#6a6d70' }}>PM Tickets</div>
               </div>
               <div style={{ padding: '12px', backgroundColor: '#ffebeb', borderRadius: '4px', textAlign: 'center' }}>
                 <div style={{ fontSize: '20px', fontWeight: 600, color: '#bb0000' }}>
-                  {workOrders.filter(wo => wo.priority === 'critical').length}
+                  {workOrders.filter(wo => wo.priority === 'critical').length + tickets.filter(t => t.priority === 'P1').length}
                 </div>
                 <div style={{ fontSize: '12px', color: '#6a6d70' }}>Critical</div>
               </div>
@@ -286,42 +319,33 @@ const PM: React.FC = () => {
 
             {loading ? (
               <div style={{ padding: '40px', textAlign: 'center', color: '#6a6d70' }}>
-                Loading work orders...
+                Loading data...
               </div>
-            ) : workOrders.length === 0 ? (
+            ) : workOrders.length === 0 && tickets.length === 0 ? (
               <div style={{ padding: '40px', textAlign: 'center', color: '#6a6d70' }}>
-                No work orders found. Click "Create Work Order" to create one.
+                No work orders or tickets found.
               </div>
             ) : (
               <table className="sap-table">
                 <thead>
                   <tr>
-                    <th>Work Order</th>
+                    <th>ID</th>
+                    <th>Description / Title</th>
                     <th>Asset ID</th>
-                    <th>Description</th>
-                    <th>Type</th>
                     <th>Priority</th>
                     <th>Status</th>
-                    <th>Assigned To</th>
-                    <th>Scheduled Date</th>
+                    <th>Assigned To / Created By</th>
+                    <th>Date</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
+                  {/* Work Orders */}
                   {workOrders.map((wo) => (
-                    <tr key={wo.order_id}>
+                    <tr key={`wo-${wo.order_id}`} style={{ backgroundColor: '#f0f7ff' }}>
                       <td style={{ fontWeight: 600, color: '#0a6ed1' }}>{wo.order_id}</td>
-                      <td>{wo.asset_id}</td>
                       <td>{wo.description}</td>
-                      <td>
-                        <span style={{ 
-                          padding: '2px 8px', 
-                          backgroundColor: '#f5f5f5',
-                          borderRadius: '2px',
-                          fontSize: '12px'
-                        }}>
-                          {wo.order_type}
-                        </span>
-                      </td>
+                      <td>{wo.asset_id}</td>
                       <td>
                         <span className={`sap-status ${
                           wo.priority === 'critical' ? 'error' :
@@ -340,8 +364,66 @@ const PM: React.FC = () => {
                       </td>
                       <td>{wo.assigned_to}</td>
                       <td>{wo.scheduled_date ? new Date(wo.scheduled_date).toLocaleDateString() : '-'}</td>
+                      <td>
+                        <button className="sap-toolbar-button" style={{ padding: '4px 8px', fontSize: '12px' }}>
+                          View
+                        </button>
+                      </td>
                     </tr>
                   ))}
+                  
+                  {/* PM Tickets */}
+                  {tickets.map((ticket) => {
+                    // Extract customer from description
+                    const customerMatch = ticket.description?.match(/Customer:\s*(CUST-[A-Z0-9-]+)/i);
+                    const customerName = customerMatch ? customerMatch[1] : ticket.created_by;
+                    
+                    return (
+                      <tr key={`ticket-${ticket.ticket_id}`}>
+                        <td style={{ fontWeight: 600, color: '#0a6ed1', fontFamily: 'monospace' }}>
+                          {ticket.ticket_id}
+                        </td>
+                        <td>{ticket.title}</td>
+                        <td>-</td>
+                        <td>
+                          <span className={`sap-status ${
+                            ticket.priority === 'P1' ? 'error' :
+                            ticket.priority === 'P2' ? 'warning' : 'info'
+                          }`}>
+                            {ticket.priority}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`sap-status ${
+                            ticket.status === 'Closed' ? 'success' :
+                            ticket.status === 'In_Progress' ? 'warning' : 'info'
+                          }`}>
+                            {ticket.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td>{customerName}</td>
+                        <td>{new Date(ticket.created_at).toLocaleDateString()}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <button
+                              className="sap-toolbar-button"
+                              style={{ padding: '4px 8px', fontSize: '12px' }}
+                              onClick={() => handleViewTicketDetails(ticket)}
+                            >
+                              View
+                            </button>
+                            <button
+                              className="sap-toolbar-button"
+                              style={{ padding: '4px 8px', fontSize: '12px', backgroundColor: '#0a6ed1', color: 'white', border: 'none' }}
+                              onClick={() => handleUpdateTicketStatus(ticket.ticket_id, ticket.status)}
+                            >
+                              Update
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}

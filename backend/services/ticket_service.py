@@ -200,7 +200,51 @@ class TicketService:
         self.session.add(audit_entry)
         await self.session.flush()
         
+        # Send notification to MuleSoft if ticket is closed and related to Load Enhancement
+        if new_status == TicketStatus.CLOSED and ticket.correlation_id and "Load Enhancement" in (ticket.title or ""):
+            await self._notify_mulesoft(ticket, comment)
+        
         return ticket, audit_entry
+    
+    async def _notify_mulesoft(self, ticket: Ticket, comment: Optional[str] = None):
+        """Send status notification to MuleSoft in XML format"""
+        import httpx
+        import xml.etree.ElementTree as ET
+        
+        try:
+            # Determine if approved or rejected
+            is_approved = comment and "Approved" in comment
+            is_rejected = comment and "Rejected" in comment
+            status = "Approved" if is_approved else "Rejected" if is_rejected else "Closed"
+            
+            # Build XML payload
+            root = ET.Element("TicketStatusUpdate")
+            ET.SubElement(root, "TicketID").text = ticket.ticket_id
+            ET.SubElement(root, "CorrelationID").text = ticket.correlation_id or ""
+            ET.SubElement(root, "Module").text = ticket.module.value
+            ET.SubElement(root, "Status").text = status
+            ET.SubElement(root, "UpdatedBy").text = comment.split("by ")[-1].split(":")[0] if comment else "system"
+            ET.SubElement(root, "UpdatedAt").text = datetime.utcnow().isoformat()
+            ET.SubElement(root, "Comment").text = comment or ""
+            
+            xml_payload = ET.tostring(root, encoding='unicode')
+            
+            # Send to MuleSoft (assuming endpoint exists)
+            mulesoft_url = "http://sap-erp-camel:8081/api/ticket-status"  # Adjust URL as needed
+            
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.post(
+                    mulesoft_url,
+                    content=xml_payload,
+                    headers={"Content-Type": "application/xml"}
+                )
+                if response.status_code == 200:
+                    print(f"Successfully notified MuleSoft about ticket {ticket.ticket_id}")
+                else:
+                    print(f"Failed to notify MuleSoft: {response.status_code}")
+        except Exception as e:
+            # Log error but don't fail the ticket update
+            print(f"Error notifying MuleSoft: {str(e)}")
     
     async def assign_ticket(
         self,

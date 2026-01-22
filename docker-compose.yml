@@ -29,7 +29,7 @@ services:
       CAMEL_WEBHOOK_URL: http://camel:8181/webhook
       PYTHONPATH: /
     ports:
-      - "8100:8000"
+      - "2004:8000"
     volumes:
       - ./backend:/app/backend
     working_dir: /app
@@ -49,14 +49,14 @@ services:
       dockerfile: Dockerfile
     container_name: sap-erp-frontend
     ports:
-      - "3010:3000"
+      - "2003:2003"
     volumes:
       - ./frontend:/app
       - /app/node_modules
     depends_on:
       - backend
     environment:
-      VITE_API_URL: http://localhost:8100/api/v1
+      VITE_API_URL: http://localhost:2004/api/v1
 
   # Kong API Gateway
   kong:

@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { fiApi } from '../services/api';
+import { fiApi, ticketsApi } from '../services/api';
 import { useSAPDialog } from '../hooks/useSAPDialog';
 import { useSAPToast } from '../hooks/useSAPToast';
 import SAPDialog from '../components/SAPDialog';
@@ -16,6 +16,7 @@ const FI: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('approvals');
   const [approvals, setApprovals] = useState<any[]>([]);
+  const [tickets, setTickets] = useState<any[]>([]);
   const [costCenters, setCostCenters] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,12 +31,20 @@ const FI: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [approvalsRes, costCentersRes] = await Promise.all([
+      const [approvalsRes, costCentersRes, ticketsRes] = await Promise.all([
         fiApi.listApprovals({ decision: 'pending' }),
-        fiApi.listCostCenters()
+        fiApi.listCostCenters(),
+        ticketsApi.list({ module: 'FI', limit: 100 })
       ]);
       setApprovals(approvalsRes.data || []);
       setCostCenters(costCentersRes.data.cost_centers || []);
+      
+      // Remove duplicate tickets by ticket_id
+      const allTickets = ticketsRes.data.tickets || [];
+      const uniqueTickets = allTickets.filter((ticket: any, index: number, self: any[]) => 
+        index === self.findIndex((t: any) => t.ticket_id === ticket.ticket_id)
+      );
+      setTickets(uniqueTickets);
     } catch (error) {
       console.error('Failed to load FI data:', error);
     } finally {
@@ -43,27 +52,35 @@ const FI: React.FC = () => {
     }
   };
 
-  const handleApprove = async (approvalId: string) => {
-    const confirmed = await showConfirm('Approve Request', 'Are you sure you want to approve this request?');
+  const handleApprove = async (approvalId: string, requestedBy: string, justification: string, amount: number) => {
+    const confirmed = await showConfirm(
+      'Approve Request', 
+      `Requester: ${requestedBy}\nJustification: ${justification}\nAmount: $${amount.toLocaleString()}\n\nApprover: ${user?.username || 'system'}\n\nAre you sure you want to approve this request?`
+    );
     if (!confirmed) return;
 
     try {
-      await fiApi.approveRequest(approvalId, user?.username || 'system', 'Approved via UI');
+      await fiApi.approveRequest(approvalId, user?.username || 'system', `Approved by ${user?.username || 'system'} via UI`);
       await loadData();
-      showSuccess('Request approved successfully!');
+      showSuccess(`Request ${approvalId} approved successfully by ${user?.username || 'system'}!`);
     } catch (error) {
       showError('Failed to approve request');
     }
   };
 
-  const handleReject = async (approvalId: string) => {
-    const reason = await showPrompt('Reject Request', 'Enter rejection reason:', '', 'Reason');
+  const handleReject = async (approvalId: string, requestedBy: string, justification: string, amount: number) => {
+    const reason = await showPrompt(
+      'Reject Request', 
+      `Requester: ${requestedBy}\nJustification: ${justification}\nAmount: $${amount.toLocaleString()}\n\nApprover: ${user?.username || 'system'}\n\nEnter rejection reason:`, 
+      '', 
+      'Reason'
+    );
     if (!reason) return;
     
     try {
-      await fiApi.rejectRequest(approvalId, user?.username || 'system', reason);
+      await fiApi.rejectRequest(approvalId, user?.username || 'system', `Rejected by ${user?.username || 'system'}: ${reason}`);
       await loadData();
-      showSuccess('Request rejected');
+      showSuccess(`Request ${approvalId} rejected by ${user?.username || 'system'}`);
     } catch (error) {
       showError('Failed to reject request');
     }
@@ -113,13 +130,107 @@ const FI: React.FC = () => {
     showAlert('Search Account', 'Feature coming soon');
   };
 
-  const glAccounts = [
-    { account: '100000', description: 'Cash and Bank', balance: 1250000, type: 'Asset' },
-    { account: '120000', description: 'Accounts Receivable', balance: 450000, type: 'Asset' },
-    { account: '200000', description: 'Accounts Payable', balance: -320000, type: 'Liability' },
-    { account: '400000', description: 'Revenue', balance: -2100000, type: 'Revenue' },
-    { account: '500000', description: 'Cost of Goods Sold', balance: 980000, type: 'Expense' },
-  ];
+  const handleViewTicketDetails = (ticket: any) => {
+    showAlert(
+      'Ticket Details',
+      `Ticket ID: ${ticket.ticket_id}\nType: ${ticket.ticket_type}\nTitle: ${ticket.title}\nDescription: ${ticket.description || 'N/A'}\nPriority: ${ticket.priority}\nStatus: ${ticket.status}\nCreated: ${new Date(ticket.created_at).toLocaleString()}\nSLA Deadline: ${new Date(ticket.sla_deadline).toLocaleString()}`
+    );
+  };
+
+  const handleUpdateTicketStatus = async (ticketId: string, currentStatus: string) => {
+    const statusOptions = ['Open', 'Assigned', 'In_Progress', 'Closed'];
+    const newStatus = await showPrompt(
+      'Update Ticket Status',
+      `Current Status: ${currentStatus}\n\nEnter new status (Open, Assigned, In_Progress, Closed):`,
+      '',
+      'New Status'
+    );
+    
+    if (!newStatus || !statusOptions.includes(newStatus)) {
+      if (newStatus) showError('Invalid status. Must be one of: Open, Assigned, In_Progress, Closed');
+      return;
+    }
+
+    try {
+      await ticketsApi.updateStatus(ticketId, newStatus, user?.username || 'system', 'Status updated from FI module');
+      await loadData();
+      showSuccess(`Ticket ${ticketId} status updated to ${newStatus}`);
+    } catch (error) {
+      showError('Failed to update ticket status');
+    }
+  };
+
+  const handleApproveTicket = async (ticketId: string, title: string, createdBy: string) => {
+    const confirmed = await showConfirm(
+      'Approve Ticket',
+      `Ticket: ${ticketId}\nTitle: ${title}\nRequester: ${createdBy}\n\nApprover: ${user?.username || 'system'}\n\nAre you sure you want to approve this ticket?`
+    );
+    if (!confirmed) return;
+
+    try {
+      // Follow the state machine: Open → Assigned → In_Progress → Closed
+      const ticket = tickets.find(t => t.ticket_id === ticketId);
+      if (!ticket) {
+        showError('Ticket not found');
+        return;
+      }
+
+      // Transition through states based on current status
+      if (ticket.status === 'Open') {
+        await ticketsApi.updateStatus(ticketId, 'Assigned', user?.username || 'system', `Assigned for approval by ${user?.username || 'system'}`);
+        await ticketsApi.updateStatus(ticketId, 'In_Progress', user?.username || 'system', `Processing approval by ${user?.username || 'system'}`);
+        await ticketsApi.updateStatus(ticketId, 'Closed', user?.username || 'system', `Approved by ${user?.username || 'system'}`);
+      } else if (ticket.status === 'Assigned') {
+        await ticketsApi.updateStatus(ticketId, 'In_Progress', user?.username || 'system', `Processing approval by ${user?.username || 'system'}`);
+        await ticketsApi.updateStatus(ticketId, 'Closed', user?.username || 'system', `Approved by ${user?.username || 'system'}`);
+      } else if (ticket.status === 'In_Progress') {
+        await ticketsApi.updateStatus(ticketId, 'Closed', user?.username || 'system', `Approved by ${user?.username || 'system'}`);
+      }
+
+      await loadData();
+      showSuccess(`Ticket ${ticketId} approved by ${user?.username || 'system'}!`);
+    } catch (error) {
+      showError('Failed to approve ticket');
+    }
+  };
+
+  const handleRejectTicket = async (ticketId: string, title: string, createdBy: string) => {
+    const reason = await showPrompt(
+      'Reject Ticket',
+      `Ticket: ${ticketId}\nTitle: ${title}\nRequester: ${createdBy}\n\nApprover: ${user?.username || 'system'}\n\nEnter rejection reason:`,
+      '',
+      'Reason'
+    );
+    if (!reason) return;
+
+    try {
+      // Follow the state machine: Open → Assigned → In_Progress → Closed
+      const ticket = tickets.find(t => t.ticket_id === ticketId);
+      if (!ticket) {
+        showError('Ticket not found');
+        return;
+      }
+
+      // Transition through states based on current status
+      if (ticket.status === 'Open') {
+        await ticketsApi.updateStatus(ticketId, 'Assigned', user?.username || 'system', `Assigned for review by ${user?.username || 'system'}`);
+        await ticketsApi.updateStatus(ticketId, 'In_Progress', user?.username || 'system', `Processing rejection by ${user?.username || 'system'}`);
+        await ticketsApi.updateStatus(ticketId, 'Closed', user?.username || 'system', `Rejected by ${user?.username || 'system'}: ${reason}`);
+      } else if (ticket.status === 'Assigned') {
+        await ticketsApi.updateStatus(ticketId, 'In_Progress', user?.username || 'system', `Processing rejection by ${user?.username || 'system'}`);
+        await ticketsApi.updateStatus(ticketId, 'Closed', user?.username || 'system', `Rejected by ${user?.username || 'system'}: ${reason}`);
+      } else if (ticket.status === 'In_Progress') {
+        await ticketsApi.updateStatus(ticketId, 'Closed', user?.username || 'system', `Rejected by ${user?.username || 'system'}: ${reason}`);
+      }
+
+      await loadData();
+      showSuccess(`Ticket ${ticketId} rejected by ${user?.username || 'system'}`);
+    } catch (error) {
+      showError('Failed to reject ticket');
+    }
+  };
+
+  const [glAccounts, setGlAccounts] = useState<any[]>([]);
 
   return (
     <div>
@@ -161,41 +272,44 @@ const FI: React.FC = () => {
         {activeTab === 'approvals' && (
           <div className="sap-gui-panel">
             <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#fff9e6', border: '1px solid #ffd966', borderRadius: '4px' }}>
-              <strong>⚠️ Pending Approvals</strong>
+              <strong>⚠️ Pending Approvals & Tickets</strong>
               <div style={{ fontSize: '13px', marginTop: '4px' }}>
-                You have {approvals.length} items requiring your approval
+                You have {approvals.length} approval requests and {tickets.length} FI tickets
               </div>
             </div>
 
             {loading ? (
               <div style={{ padding: '40px', textAlign: 'center', color: '#6a6d70' }}>
-                Loading approvals...
+                Loading data...
               </div>
-            ) : approvals.length === 0 ? (
+            ) : approvals.length === 0 && tickets.length === 0 ? (
               <div style={{ padding: '40px', textAlign: 'center', color: '#6a6d70' }}>
-                No pending approvals
+                No pending approvals or tickets
               </div>
             ) : (
               <table className="sap-table">
                 <thead>
                   <tr>
-                    <th>Approval ID</th>
-                    <th>Amount (USD)</th>
-                    <th>Justification</th>
-                    <th>Requested By</th>
+                    <th>ID</th>
+                    <th>Title / Justification</th>
+                    <th>Amount / Priority</th>
+                    <th>Requester</th>
                     <th>Date</th>
+                    <th>SLA Deadline</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
+                  {/* Approval Requests */}
                   {approvals.map((app) => (
-                    <tr key={app.approval_id}>
+                    <tr key={`approval-${app.approval_id}`} style={{ backgroundColor: '#fffef0' }}>
                       <td style={{ fontWeight: 600, color: '#0a6ed1' }}>{app.approval_id}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600 }}>${app.amount?.toLocaleString()}</td>
                       <td>{app.justification}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 600 }}>${app.amount?.toLocaleString()}</td>
                       <td>{app.requested_by}</td>
                       <td>{new Date(app.requested_at).toLocaleDateString()}</td>
+                      <td>-</td>
                       <td>
                         <span className="sap-status warning">
                           {app.decision || 'Pending'}
@@ -206,14 +320,14 @@ const FI: React.FC = () => {
                           <button 
                             className="sap-toolbar-button" 
                             style={{ padding: '4px 12px', fontSize: '12px', backgroundColor: '#107e3e', color: 'white', border: 'none' }}
-                            onClick={() => handleApprove(app.approval_id)}
+                            onClick={() => handleApprove(app.approval_id, app.requested_by, app.justification, app.amount)}
                           >
                             ✓ Approve
                           </button>
                           <button 
                             className="sap-toolbar-button" 
                             style={{ padding: '4px 12px', fontSize: '12px', backgroundColor: '#bb0000', color: 'white', border: 'none' }}
-                            onClick={() => handleReject(app.approval_id)}
+                            onClick={() => handleReject(app.approval_id, app.requested_by, app.justification, app.amount)}
                           >
                             ✗ Reject
                           </button>
@@ -221,6 +335,70 @@ const FI: React.FC = () => {
                       </td>
                     </tr>
                   ))}
+                  
+                  {/* FI Tickets */}
+                  {tickets.map((ticket) => {
+                    // Extract customer ID and estimated cost from description
+                    const customerMatch = ticket.description?.match(/Customer:\s*(CUST-[A-Z0-9-]+)/i);
+                    const costMatch = ticket.description?.match(/Estimated Cost:\s*₹?([\d,]+(?:\.\d+)?)/i);
+                    const customerName = customerMatch ? customerMatch[1] : ticket.created_by;
+                    const estimatedCost = costMatch ? costMatch[1].replace(/,/g, '') : null;
+                    
+                    return (
+                      <tr key={`ticket-${ticket.ticket_id}`}>
+                        <td style={{ fontWeight: 600, color: '#0a6ed1', fontFamily: 'monospace' }}>
+                          {ticket.ticket_id}
+                        </td>
+                        <td>{ticket.title}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                          {estimatedCost ? `₹${parseInt(estimatedCost).toLocaleString()}` : (
+                            <span className={`sap-status ${
+                              ticket.priority === 'P1' ? 'error' :
+                              ticket.priority === 'P2' ? 'warning' : 'info'
+                            }`}>
+                              {ticket.priority}
+                            </span>
+                          )}
+                        </td>
+                        <td>{customerName}</td>
+                        <td>{new Date(ticket.created_at).toLocaleDateString()}</td>
+                        <td>{new Date(ticket.sla_deadline).toLocaleDateString()}</td>
+                        <td>
+                          <span className={`sap-status ${
+                            ticket.status === 'Closed' ? 'success' :
+                            ticket.status === 'In_Progress' ? 'warning' : 'info'
+                          }`}>
+                            {ticket.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <button
+                              className="sap-toolbar-button"
+                              style={{ padding: '4px 8px', fontSize: '12px' }}
+                              onClick={() => handleViewTicketDetails(ticket)}
+                            >
+                              View
+                            </button>
+                            <button
+                              className="sap-toolbar-button"
+                              style={{ padding: '4px 8px', fontSize: '12px', backgroundColor: '#107e3e', color: 'white', border: 'none' }}
+                              onClick={() => handleApproveTicket(ticket.ticket_id, ticket.title, customerName)}
+                            >
+                              ✓ Approve
+                            </button>
+                            <button
+                              className="sap-toolbar-button"
+                              style={{ padding: '4px 8px', fontSize: '12px', backgroundColor: '#bb0000', color: 'white', border: 'none' }}
+                              onClick={() => handleRejectTicket(ticket.ticket_id, ticket.title, customerName)}
+                            >
+                              ✗ Reject
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -314,49 +492,55 @@ const FI: React.FC = () => {
               </div>
             </div>
 
-            <table className="sap-table">
-              <thead>
-                <tr>
-                  <th>Account Number</th>
-                  <th>Description</th>
-                  <th>Account Type</th>
-                  <th>Balance (USD)</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {glAccounts.map((acc) => (
-                  <tr key={acc.account}>
-                    <td style={{ fontWeight: 600, color: '#0a6ed1', fontFamily: 'monospace' }}>{acc.account}</td>
-                    <td>{acc.description}</td>
-                    <td>
-                      <span style={{ 
-                        padding: '2px 8px', 
-                        backgroundColor: '#e5f3ff',
-                        borderRadius: '2px',
-                        fontSize: '12px',
-                        fontWeight: 500
-                      }}>
-                        {acc.type}
-                      </span>
-                    </td>
-                    <td style={{ 
-                      textAlign: 'right', 
-                      fontWeight: 600,
-                      color: acc.balance < 0 ? '#bb0000' : '#107e3e'
-                    }}>
-                      ${Math.abs(acc.balance).toLocaleString()}
-                      {acc.balance < 0 ? ' CR' : ' DR'}
-                    </td>
-                    <td>
-                      <button className="sap-toolbar-button" style={{ padding: '4px 8px', fontSize: '12px' }}>
-                        View Entries
-                      </button>
-                    </td>
+            {glAccounts.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#6a6d70' }}>
+                No GL accounts found. Use the search function to find accounts.
+              </div>
+            ) : (
+              <table className="sap-table">
+                <thead>
+                  <tr>
+                    <th>Account Number</th>
+                    <th>Description</th>
+                    <th>Account Type</th>
+                    <th>Balance (USD)</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {glAccounts.map((acc) => (
+                    <tr key={acc.account}>
+                      <td style={{ fontWeight: 600, color: '#0a6ed1', fontFamily: 'monospace' }}>{acc.account}</td>
+                      <td>{acc.description}</td>
+                      <td>
+                        <span style={{ 
+                          padding: '2px 8px', 
+                          backgroundColor: '#e5f3ff',
+                          borderRadius: '2px',
+                          fontSize: '12px',
+                          fontWeight: 500
+                        }}>
+                          {acc.type}
+                        </span>
+                      </td>
+                      <td style={{ 
+                        textAlign: 'right', 
+                        fontWeight: 600,
+                        color: acc.balance < 0 ? '#bb0000' : '#107e3e'
+                      }}>
+                        ${Math.abs(acc.balance).toLocaleString()}
+                        {acc.balance < 0 ? ' CR' : ' DR'}
+                      </td>
+                      <td>
+                        <button className="sap-toolbar-button" style={{ padding: '4px 8px', fontSize: '12px' }}>
+                          View Entries
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
 
