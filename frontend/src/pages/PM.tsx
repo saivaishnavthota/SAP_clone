@@ -22,7 +22,6 @@ const PM: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [descriptionSearch, setDescriptionSearch] = useState('');
   const [selectedEquipment, setSelectedEquipment] = useState<string | null>(null);
-  const [showCreateWorkOrderModal, setShowCreateWorkOrderModal] = useState(false);
   const [showCreateEquipmentModal, setShowCreateEquipmentModal] = useState(false);
   const { dialogState, showAlert, showPrompt, handleClose: closeDialog } = useSAPDialog();
   const { toastState, showSuccess, showError, handleClose: closeToast } = useSAPToast();
@@ -33,37 +32,136 @@ const PM: React.FC = () => {
 
   const loadData = async () => {
     setLoading(true);
+    let successCount = 0;
+    let failCount = 0;
+    
     try {
-      const [equipmentRes, ordersRes, ticketsRes] = await Promise.all([
-        pmApi.listAssets(),
-        pmApi.listMaintenanceOrders(),
-        ticketsApi.list({ module: 'PM', limit: 100 })
-      ]);
-      setEquipment(equipmentRes.data.assets || []);
-      setWorkOrders(ordersRes.data.orders || []);
-      setTickets(ticketsRes.data.tickets || []);
-    } catch (error) {
+      // Fetch equipment using direct fetch
+      console.log('Fetching equipment from /api/v1/pm/assets...');
+      try {
+        const equipmentResponse = await fetch('http://localhost:2004/api/v1/pm/assets?limit=100', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (equipmentResponse.ok) {
+          const equipmentData = await equipmentResponse.json();
+          setEquipment(equipmentData.assets || []);
+          console.log('✅ Equipment loaded:', equipmentData.assets?.length || 0);
+          successCount++;
+        } else {
+          console.error('❌ Equipment fetch failed:', equipmentResponse.status);
+          failCount++;
+        }
+      } catch (error) {
+        console.error('❌ Equipment error:', error);
+        failCount++;
+      }
+      
+      // Fetch work orders from new PM Workflow API
+      console.log('Fetching work orders from /api/v1/pm-workflow/orders/recent...');
+      try {
+        const workOrdersResponse = await fetch('/api/v1/pm-workflow/orders/recent', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (workOrdersResponse.ok) {
+          const workOrdersData = await workOrdersResponse.json();
+          setWorkOrders(workOrdersData || []);
+          console.log('✅ Work orders loaded:', workOrdersData?.length || 0);
+          successCount++;
+        } else {
+          console.error('❌ Work orders fetch failed:', workOrdersResponse.status);
+          setWorkOrders([]);
+          failCount++;
+        }
+      } catch (error) {
+        console.error('❌ Work orders error:', error);
+        setWorkOrders([]);
+        failCount++;
+      }
+      
+      // Fetch tickets
+      console.log('Fetching tickets...');
+      try {
+        const ticketsRes = await ticketsApi.list({ module: 'PM', limit: 100 });
+        setTickets(ticketsRes.data.tickets || []);
+        console.log('✅ Tickets loaded:', ticketsRes.data.tickets?.length || 0);
+        successCount++;
+      } catch (error) {
+        console.error('❌ Tickets error:', error);
+        setTickets([]);
+        failCount++;
+      }
+      
+      // Show appropriate message
+      if (successCount > 0 && failCount === 0) {
+        showSuccess('All data loaded successfully');
+      } else if (successCount > 0) {
+        showSuccess(`Loaded ${successCount} of ${successCount + failCount} data sources`);
+      } else {
+        showError('Failed to load data');
+      }
+      
+    } catch (error: any) {
       console.error('Failed to load PM data:', error);
+      showError(`Failed to load PM data: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateWorkOrder = async (data: any) => {
+  const handleCreateWorkOrder = async () => {
     try {
-      await pmApi.createMaintenanceOrder({
-        asset_id: data.assetId,
-        order_type: data.orderType || 'preventive',
-        description: data.description,
-        priority: data.priority || 'medium',
-        scheduled_date: data.scheduledDate || new Date().toISOString().split('T')[0],
-        assigned_to: user?.username || 'unassigned'
+      // Create work order with default values
+      const response = await fetch('http://localhost:2004/api/v1/pm-workflow/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          order_type: 'general',
+          equipment_id: 'AST-DEFAULT-001',
+          functional_location: null,
+          priority: 'normal',
+          planned_start_date: new Date().toISOString(),
+          planned_end_date: null,
+          breakdown_notification_id: null,
+          created_by: user?.username || 'system',
+          operations: [],
+          components: [],
+          permits: []
+        })
       });
+
+      console.log('Work order creation response status:', response.status);
+      
+      if (!response.ok) {
+        let errorMessage = `Failed to create work order (${response.status})`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorMessage;
+        } catch {
+          if (response.status === 404) {
+            errorMessage = 'Work order endpoint not found. Please ensure backend is running.';
+          }
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      console.log('Work order created:', result);
+      
       await loadData();
-      setShowCreateWorkOrderModal(false);
-      showSuccess('Work order created successfully!');
-    } catch (error) {
-      showError('Failed to create work order');
+      showSuccess(`Work order ${result.order_number} created successfully!`);
+    } catch (error: any) {
+      console.error('Create work order error:', error);
+      showError(error.message || 'Failed to create work order');
     }
   };
 
@@ -73,13 +171,16 @@ const PM: React.FC = () => {
         name: data.name,
         asset_type: data.type,
         location: data.location,
-        status: data.status || 'operational'
+        installation_date: data.installationDate || new Date().toISOString().split('T')[0], // Required field
+        status: data.status || 'operational',
+        description: data.description || null
       });
       await loadData();
       setShowCreateEquipmentModal(false);
       showSuccess('Equipment created successfully!');
-    } catch (error) {
-      showError('Failed to create equipment');
+    } catch (error: any) {
+      console.error('Create equipment error:', error);
+      showError(error.response?.data?.detail || 'Failed to create equipment');
     }
   };
 
@@ -229,6 +330,11 @@ const PM: React.FC = () => {
             ) : equipment.length === 0 ? (
               <div style={{ padding: '40px', textAlign: 'center', color: '#6a6d70' }}>
                 No equipment found. Click "Create" to add new equipment.
+                <div style={{ marginTop: '12px' }}>
+                  <button className="sap-toolbar-button" onClick={loadData}>
+                    Refresh
+                  </button>
+                </div>
               </div>
             ) : (
               <>
@@ -287,7 +393,7 @@ const PM: React.FC = () => {
           <div className="sap-gui-panel">
             <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0 }}>Work Orders & Tickets</h3>
-              <button className="sap-toolbar-button primary" onClick={() => setShowCreateWorkOrderModal(true)}>
+              <button className="sap-toolbar-button primary" onClick={handleCreateWorkOrder}>
                 + Create Work Order
               </button>
             </div>
@@ -299,7 +405,7 @@ const PM: React.FC = () => {
               </div>
               <div style={{ padding: '12px', backgroundColor: '#fef7f1', borderRadius: '4px', textAlign: 'center' }}>
                 <div style={{ fontSize: '20px', fontWeight: 600, color: '#e9730c' }}>
-                  {workOrders.filter(wo => wo.status === 'in_progress').length}
+                  {workOrders.filter(wo => wo.status === 'in_progress' || wo.status === 'released').length}
                 </div>
                 <div style={{ fontSize: '12px', color: '#6a6d70' }}>In Progress</div>
               </div>
@@ -311,7 +417,7 @@ const PM: React.FC = () => {
               </div>
               <div style={{ padding: '12px', backgroundColor: '#ffebeb', borderRadius: '4px', textAlign: 'center' }}>
                 <div style={{ fontSize: '20px', fontWeight: 600, color: '#bb0000' }}>
-                  {workOrders.filter(wo => wo.priority === 'critical').length + tickets.filter(t => t.priority === 'P1').length}
+                  {workOrders.filter(wo => wo.priority === 'urgent').length + tickets.filter(t => t.priority === 'P1').length}
                 </div>
                 <div style={{ fontSize: '12px', color: '#6a6d70' }}>Critical</div>
               </div>
@@ -342,13 +448,13 @@ const PM: React.FC = () => {
                 <tbody>
                   {/* Work Orders */}
                   {workOrders.map((wo) => (
-                    <tr key={`wo-${wo.order_id}`} style={{ backgroundColor: '#f0f7ff' }}>
-                      <td style={{ fontWeight: 600, color: '#0a6ed1' }}>{wo.order_id}</td>
-                      <td>{wo.description}</td>
-                      <td>{wo.asset_id}</td>
+                    <tr key={`wo-${wo.order_number}`} style={{ backgroundColor: '#f0f7ff' }}>
+                      <td style={{ fontWeight: 600, color: '#0a6ed1' }}>{wo.order_number}</td>
+                      <td>{wo.functional_location || wo.equipment_id || '-'}</td>
+                      <td>{wo.equipment_id || '-'}</td>
                       <td>
                         <span className={`sap-status ${
-                          wo.priority === 'critical' ? 'error' :
+                          wo.priority === 'urgent' ? 'error' :
                           wo.priority === 'high' ? 'warning' : 'info'
                         }`}>
                           {wo.priority}
@@ -356,14 +462,14 @@ const PM: React.FC = () => {
                       </td>
                       <td>
                         <span className={`sap-status ${
-                          wo.status === 'completed' ? 'success' :
-                          wo.status === 'in_progress' ? 'warning' : 'info'
+                          wo.status === 'teco' ? 'success' :
+                          wo.status === 'in_progress' || wo.status === 'confirmed' ? 'warning' : 'info'
                         }`}>
-                          {wo.status}
+                          {wo.status.replace('_', ' ')}
                         </span>
                       </td>
-                      <td>{wo.assigned_to}</td>
-                      <td>{wo.scheduled_date ? new Date(wo.scheduled_date).toLocaleDateString() : '-'}</td>
+                      <td>{wo.created_by}</td>
+                      <td>{wo.planned_start_date ? new Date(wo.planned_start_date).toLocaleDateString() : '-'}</td>
                       <td>
                         <button className="sap-toolbar-button" style={{ padding: '4px 8px', fontSize: '12px' }}>
                           View
@@ -477,43 +583,6 @@ const PM: React.FC = () => {
         onClose={closeToast}
       />
 
-      {/* Create Work Order Modal */}
-      <SAPFormDialog
-        isOpen={showCreateWorkOrderModal}
-        title="Create Work Order"
-        fields={[
-          { name: 'assetId', label: 'Asset ID', type: 'text', required: true },
-          { name: 'description', label: 'Description', type: 'textarea', required: true },
-          { 
-            name: 'orderType', 
-            label: 'Order Type', 
-            type: 'select', 
-            required: true,
-            options: [
-              { value: 'preventive', label: 'Preventive' },
-              { value: 'corrective', label: 'Corrective' },
-              { value: 'breakdown', label: 'Breakdown' }
-            ]
-          },
-          { 
-            name: 'priority', 
-            label: 'Priority', 
-            type: 'select', 
-            required: true,
-            options: [
-              { value: 'low', label: 'Low' },
-              { value: 'medium', label: 'Medium' },
-              { value: 'high', label: 'High' },
-              { value: 'critical', label: 'Critical' }
-            ]
-          },
-          { name: 'scheduledDate', label: 'Scheduled Date', type: 'date', required: true }
-        ]}
-        onSubmit={handleCreateWorkOrder}
-        onCancel={() => setShowCreateWorkOrderModal(false)}
-        submitLabel="Create"
-      />
-
       {/* Create Equipment Modal */}
       <SAPFormDialog
         isOpen={showCreateEquipmentModal}
@@ -534,6 +603,8 @@ const PM: React.FC = () => {
             ]
           },
           { name: 'location', label: 'Location', type: 'text', required: true },
+          { name: 'installationDate', label: 'Installation Date', type: 'date', required: true },
+          { name: 'description', label: 'Description', type: 'textarea', required: false },
           { 
             name: 'status', 
             label: 'Status', 

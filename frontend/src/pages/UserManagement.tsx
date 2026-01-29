@@ -1,5 +1,5 @@
 /**
- * User Management Page
+ * Basis Administration Page
  * Admin-only page to view, create, and manage users
  */
 import React, { useState, useEffect } from 'react';
@@ -19,16 +19,45 @@ const AVAILABLE_ROLES = [
   { value: 'Admin', label: 'Administrator' },
 ];
 
+const USER_TYPES = ['Dialog', 'System', 'Service', 'Communication'];
+const USER_GROUPS = ['SUPER', 'ADMIN', 'USER', 'GUEST'];
+
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('address');
+  const [passwordTab, setPasswordTab] = useState('logon');
   const [createForm, setCreateForm] = useState({
+    // Address tab
     username: '',
+    alias: '',
+    userType: 'Dialog',
+    
+    // Logon data tab
     password: '',
+    passwordStatus: 'Productive password',
+    
+    // Roles tab
     roles: [] as string[],
+    userGroup: 'SUPER',
+    
+    // Defaults tab
+    validFrom: '',
+    validThrough: '',
+    
+    // Other data
+    accountingNumber: '',
+    costCenter: '',
+    
+    // Parameters
+    timeZone: 'UTC',
+    dateFormat: 'DD.MM.YYYY',
+    
+    // Profiles
+    profiles: [] as string[],
   });
   const [passwordForm, setPasswordForm] = useState({
     newPassword: '',
@@ -143,7 +172,7 @@ const UserManagement: React.FC = () => {
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>👥 User Management</h1>
+            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600 }}>⚙️ Basis Administration</h1>
             <p style={{ margin: '8px 0 0 0', color: '#666' }}>
               Manage system users, roles, and permissions (Admin only)
             </p>
@@ -289,7 +318,7 @@ const UserManagement: React.FC = () => {
         )}
       </div>
 
-      {/* Create User Modal */}
+      {/* Create User Modal - SAP Style */}
       {showCreateModal && (
         <div style={{
           position: 'fixed',
@@ -304,76 +333,450 @@ const UserManagement: React.FC = () => {
           zIndex: 1000,
         }}>
           <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '24px',
-            width: '500px',
+            backgroundColor: '#e8eef7',
+            borderRadius: '4px',
+            width: '900px',
             maxHeight: '90vh',
             overflow: 'auto',
+            border: '2px solid #5b7fa6',
           }}>
-            <h2 style={{ marginTop: 0 }}>👤 Create New User</h2>
+            {/* Header */}
+            <div style={{
+              backgroundColor: '#5b7fa6',
+              color: 'white',
+              padding: '12px 20px',
+              fontSize: '16px',
+              fontWeight: 600,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <span>Create User</span>
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setActiveTab('address');
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'white',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  padding: '0 8px',
+                }}
+              >
+                ×
+              </button>
+            </div>
+
             <form onSubmit={handleCreateUser}>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontWeight: 500, fontSize: '14px' }}>
-                  Username
-                </label>
-                <input
-                  type="text"
-                  value={createForm.username}
-                  onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
-                  required
-                  placeholder="Enter username"
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #d9d9d9', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontWeight: 500, fontSize: '14px' }}>
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={createForm.password}
-                  onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
-                  required
-                  placeholder="Enter password"
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #d9d9d9', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px' }}>
-                  Roles (select at least one)
-                </label>
-                {AVAILABLE_ROLES.map(role => (
-                  <div key={role.value} style={{ marginBottom: '8px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={createForm.roles.includes(role.value)}
-                        onChange={() => toggleRole(role.value)}
-                        style={{ marginRight: '8px' }}
-                      />
-                      <span style={{ fontSize: '14px' }}>{role.label}</span>
-                    </label>
-                  </div>
+              {/* Tab Navigation */}
+              <div style={{
+                display: 'flex',
+                backgroundColor: '#d4dce8',
+                borderBottom: '2px solid #5b7fa6',
+                padding: '0 8px',
+              }}>
+                {[
+                  { id: 'address', label: 'Address' },
+                  { id: 'logon', label: 'Logon data' },
+                  { id: 'snc', label: 'SNC' },
+                  { id: 'defaults', label: 'Defaults' },
+                  { id: 'parameters', label: 'Parameters' },
+                  { id: 'roles', label: 'Roles' },
+                  { id: 'profiles', label: 'Profiles' },
+                  { id: 'groups', label: 'Groups' },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    style={{
+                      padding: '8px 16px',
+                      border: 'none',
+                      backgroundColor: activeTab === tab.id ? '#e8eef7' : 'transparent',
+                      color: '#000',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: activeTab === tab.id ? 600 : 400,
+                      borderTop: activeTab === tab.id ? '2px solid #5b7fa6' : 'none',
+                      borderLeft: activeTab === tab.id ? '1px solid #5b7fa6' : 'none',
+                      borderRight: activeTab === tab.id ? '1px solid #5b7fa6' : 'none',
+                      marginTop: activeTab === tab.id ? '0' : '2px',
+                    }}
+                  >
+                    {tab.label}
+                  </button>
                 ))}
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '24px' }}>
+              {/* Tab Content */}
+              <div style={{ padding: '20px', minHeight: '400px' }}>
+                {/* Address Tab */}
+                {activeTab === 'address' && (
+                  <div>
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Alias</label>
+                      <input
+                        type="text"
+                        value={createForm.alias}
+                        onChange={(e) => setCreateForm({ ...createForm, alias: e.target.value })}
+                        style={{
+                          padding: '6px 8px',
+                          border: '1px solid #8b9dc3',
+                          backgroundColor: 'white',
+                          fontSize: '13px',
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>User Type</label>
+                      <select
+                        value={createForm.userType}
+                        onChange={(e) => setCreateForm({ ...createForm, userType: e.target.value })}
+                        style={{
+                          padding: '6px 8px',
+                          border: '1px solid #8b9dc3',
+                          backgroundColor: 'white',
+                          fontSize: '13px',
+                          width: '200px',
+                        }}
+                      >
+                        {USER_TYPES.map(type => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Logon Data Tab */}
+                {activeTab === 'logon' && (
+                  <div>
+                    <div style={{
+                      backgroundColor: '#c8d4e3',
+                      padding: '8px 12px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid #8b9dc3',
+                    }}>
+                      Password
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Username *</label>
+                      <input
+                        type="text"
+                        value={createForm.username}
+                        onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
+                        required
+                        placeholder="Enter username"
+                        style={{
+                          padding: '6px 8px',
+                          border: '1px solid #8b9dc3',
+                          backgroundColor: 'white',
+                          fontSize: '13px',
+                          maxWidth: '300px',
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Password *</label>
+                      <input
+                        type="password"
+                        value={createForm.password}
+                        onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                        required
+                        placeholder="Enter password"
+                        style={{
+                          padding: '6px 8px',
+                          border: '1px solid #8b9dc3',
+                          backgroundColor: 'white',
+                          fontSize: '13px',
+                          maxWidth: '300px',
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Password Status</label>
+                      <div style={{
+                        padding: '6px 8px',
+                        backgroundColor: '#e8eef7',
+                        fontSize: '13px',
+                        border: '1px solid #8b9dc3',
+                        maxWidth: '300px',
+                      }}>
+                        {createForm.passwordStatus}
+                      </div>
+                    </div>
+
+                    <div style={{
+                      backgroundColor: '#c8d4e3',
+                      padding: '8px 12px',
+                      marginTop: '24px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid #8b9dc3',
+                    }}>
+                      User Group for Authorization Check
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>User group</label>
+                      <select
+                        value={createForm.userGroup}
+                        onChange={(e) => setCreateForm({ ...createForm, userGroup: e.target.value })}
+                        style={{
+                          padding: '6px 8px',
+                          border: '1px solid #8b9dc3',
+                          backgroundColor: 'white',
+                          fontSize: '13px',
+                        }}
+                      >
+                        {USER_GROUPS.map(group => (
+                          <option key={group} value={group}>{group}</option>
+                        ))}
+                      </select>
+                      <span style={{ fontSize: '13px', color: '#666' }}>User With All Authorizations</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* SNC Tab */}
+                {activeTab === 'snc' && (
+                  <div style={{ padding: '20px', color: '#666', fontSize: '13px' }}>
+                    <p>Secure Network Communication (SNC) settings</p>
+                    <p style={{ marginTop: '12px' }}>No SNC configuration required for this user type.</p>
+                  </div>
+                )}
+
+                {/* Defaults Tab */}
+                {activeTab === 'defaults' && (
+                  <div>
+                    <div style={{
+                      backgroundColor: '#c8d4e3',
+                      padding: '8px 12px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid #8b9dc3',
+                    }}>
+                      Validity Period
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Valid from</label>
+                      <input
+                        type="date"
+                        value={createForm.validFrom}
+                        onChange={(e) => setCreateForm({ ...createForm, validFrom: e.target.value })}
+                        style={{
+                          padding: '6px 8px',
+                          border: '1px solid #8b9dc3',
+                          backgroundColor: 'white',
+                          fontSize: '13px',
+                          maxWidth: '200px',
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Valid through</label>
+                      <input
+                        type="date"
+                        value={createForm.validThrough}
+                        onChange={(e) => setCreateForm({ ...createForm, validThrough: e.target.value })}
+                        style={{
+                          padding: '6px 8px',
+                          border: '1px solid #8b9dc3',
+                          backgroundColor: 'white',
+                          fontSize: '13px',
+                          maxWidth: '200px',
+                        }}
+                      />
+                    </div>
+
+                    <div style={{
+                      backgroundColor: '#c8d4e3',
+                      padding: '8px 12px',
+                      marginTop: '24px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid #8b9dc3',
+                    }}>
+                      Other Data
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Accounting Number</label>
+                      <input
+                        type="text"
+                        value={createForm.accountingNumber}
+                        onChange={(e) => setCreateForm({ ...createForm, accountingNumber: e.target.value })}
+                        style={{
+                          padding: '6px 8px',
+                          border: '1px solid #8b9dc3',
+                          backgroundColor: 'white',
+                          fontSize: '13px',
+                          maxWidth: '200px',
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Cost center</label>
+                      <input
+                        type="text"
+                        value={createForm.costCenter}
+                        onChange={(e) => setCreateForm({ ...createForm, costCenter: e.target.value })}
+                        style={{
+                          padding: '6px 8px',
+                          border: '1px solid #8b9dc3',
+                          backgroundColor: 'white',
+                          fontSize: '13px',
+                          maxWidth: '200px',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Parameters Tab */}
+                {activeTab === 'parameters' && (
+                  <div>
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Time Zone</label>
+                      <select
+                        value={createForm.timeZone}
+                        onChange={(e) => setCreateForm({ ...createForm, timeZone: e.target.value })}
+                        style={{
+                          padding: '6px 8px',
+                          border: '1px solid #8b9dc3',
+                          backgroundColor: 'white',
+                          fontSize: '13px',
+                          maxWidth: '200px',
+                        }}
+                      >
+                        <option value="UTC">UTC</option>
+                        <option value="EST">EST</option>
+                        <option value="PST">PST</option>
+                        <option value="CET">CET</option>
+                      </select>
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Date Format</label>
+                      <select
+                        value={createForm.dateFormat}
+                        onChange={(e) => setCreateForm({ ...createForm, dateFormat: e.target.value })}
+                        style={{
+                          padding: '6px 8px',
+                          border: '1px solid #8b9dc3',
+                          backgroundColor: 'white',
+                          fontSize: '13px',
+                          maxWidth: '200px',
+                        }}
+                      >
+                        <option value="DD.MM.YYYY">DD.MM.YYYY</option>
+                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Roles Tab */}
+                {activeTab === 'roles' && (
+                  <div>
+                    <div style={{
+                      backgroundColor: '#c8d4e3',
+                      padding: '8px 12px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid #8b9dc3',
+                    }}>
+                      Assigned Roles (select at least one) *
+                    </div>
+
+                    {AVAILABLE_ROLES.map(role => (
+                      <div key={role.value} style={{ marginBottom: '12px', paddingLeft: '12px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={createForm.roles.includes(role.value)}
+                            onChange={() => toggleRole(role.value)}
+                            style={{ marginRight: '12px', width: '16px', height: '16px' }}
+                          />
+                          <span style={{ fontSize: '13px' }}>{role.label}</span>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Profiles Tab */}
+                {activeTab === 'profiles' && (
+                  <div style={{ padding: '20px', color: '#666', fontSize: '13px' }}>
+                    <p>User profiles define authorization objects and their values.</p>
+                    <p style={{ marginTop: '12px' }}>Profiles are automatically assigned based on selected roles.</p>
+                  </div>
+                )}
+
+                {/* Groups Tab */}
+                {activeTab === 'groups' && (
+                  <div style={{ padding: '20px', color: '#666', fontSize: '13px' }}>
+                    <p>User group: <strong>{createForm.userGroup}</strong></p>
+                    <p style={{ marginTop: '12px' }}>User groups are used for authorization checks and reporting.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer Buttons */}
+              <div style={{
+                backgroundColor: '#d4dce8',
+                padding: '12px 20px',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '8px',
+                borderTop: '1px solid #8b9dc3',
+              }}>
                 <button
                   type="button"
                   onClick={() => {
                     setShowCreateModal(false);
-                    setCreateForm({ username: '', password: '', roles: [] });
+                    setActiveTab('address');
+                    setCreateForm({
+                      username: '',
+                      alias: '',
+                      userType: 'Dialog',
+                      password: '',
+                      passwordStatus: 'Productive password',
+                      roles: [],
+                      userGroup: 'SUPER',
+                      validFrom: '',
+                      validThrough: '',
+                      accountingNumber: '',
+                      costCenter: '',
+                      timeZone: 'UTC',
+                      dateFormat: 'DD.MM.YYYY',
+                      profiles: [],
+                    });
                   }}
                   style={{
-                    padding: '10px 20px',
-                    borderRadius: '4px',
-                    border: '1px solid #d9d9d9',
-                    backgroundColor: 'white',
+                    padding: '8px 20px',
+                    border: '1px solid #8b9dc3',
+                    backgroundColor: '#e8eef7',
                     cursor: 'pointer',
-                    fontSize: '14px',
+                    fontSize: '13px',
+                    fontWeight: 500,
                   }}
                 >
                   Cancel
@@ -381,17 +784,16 @@ const UserManagement: React.FC = () => {
                 <button
                   type="submit"
                   style={{
-                    padding: '10px 20px',
-                    backgroundColor: '#1890ff',
+                    padding: '8px 20px',
+                    backgroundColor: '#5b7fa6',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '4px',
                     cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 500,
+                    fontSize: '13px',
+                    fontWeight: 600,
                   }}
                 >
-                  Create User
+                  Save
                 </button>
               </div>
             </form>
@@ -399,7 +801,7 @@ const UserManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Change Password Modal */}
+      {/* Change Password Modal - SAP Style */}
       {showPasswordModal && (
         <div style={{
           position: 'fixed',
@@ -414,59 +816,440 @@ const UserManagement: React.FC = () => {
           zIndex: 1000,
         }}>
           <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '24px',
-            width: '400px',
+            backgroundColor: '#e8eef7',
+            borderRadius: '4px',
+            width: '800px',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            border: '2px solid #5b7fa6',
           }}>
-            <h2 style={{ marginTop: 0 }}>🔑 Change Password</h2>
-            <p style={{ color: '#666', fontSize: '14px' }}>
-              Changing password for user: <strong>{selectedUser}</strong>
-            </p>
+            {/* Header */}
+            <div style={{
+              backgroundColor: '#5b7fa6',
+              color: 'white',
+              padding: '12px 20px',
+              fontSize: '16px',
+              fontWeight: 600,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <span>Change User: {selectedUser}</span>
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setPasswordTab('logon');
+                  setPasswordForm({ newPassword: '', confirmPassword: '' });
+                  setSelectedUser(null);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'white',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  padding: '0 8px',
+                }}
+              >
+                ×
+              </button>
+            </div>
+
             <form onSubmit={handleChangePassword}>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontWeight: 500, fontSize: '14px' }}>
-                  New Password
-                </label>
-                <input
-                  type="password"
-                  value={passwordForm.newPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                  required
-                  placeholder="Enter new password"
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #d9d9d9', boxSizing: 'border-box' }}
-                />
+              {/* Tab Navigation */}
+              <div style={{
+                display: 'flex',
+                backgroundColor: '#d4dce8',
+                borderBottom: '2px solid #5b7fa6',
+                padding: '0 8px',
+              }}>
+                {[
+                  { id: 'address', label: 'Address' },
+                  { id: 'logon', label: 'Logon data' },
+                  { id: 'snc', label: 'SNC' },
+                  { id: 'defaults', label: 'Defaults' },
+                  { id: 'parameters', label: 'Parameters' },
+                  { id: 'roles', label: 'Roles' },
+                  { id: 'profiles', label: 'Profiles' },
+                  { id: 'groups', label: 'Groups' },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setPasswordTab(tab.id)}
+                    style={{
+                      padding: '8px 16px',
+                      border: 'none',
+                      backgroundColor: passwordTab === tab.id ? '#e8eef7' : 'transparent',
+                      color: '#000',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: passwordTab === tab.id ? 600 : 400,
+                      borderTop: passwordTab === tab.id ? '2px solid #5b7fa6' : 'none',
+                      borderLeft: passwordTab === tab.id ? '1px solid #5b7fa6' : 'none',
+                      borderRight: passwordTab === tab.id ? '1px solid #5b9dc3' : 'none',
+                      marginTop: passwordTab === tab.id ? '0' : '2px',
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontWeight: 500, fontSize: '14px' }}>
-                  Confirm Password
-                </label>
-                <input
-                  type="password"
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                  required
-                  placeholder="Confirm new password"
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #d9d9d9', boxSizing: 'border-box' }}
-                />
+              {/* Tab Content */}
+              <div style={{ padding: '20px', minHeight: '350px' }}>
+                {/* Address Tab */}
+                {passwordTab === 'address' && (
+                  <div>
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Username</label>
+                      <div style={{
+                        padding: '6px 8px',
+                        backgroundColor: '#f0f0f0',
+                        fontSize: '13px',
+                        border: '1px solid #8b9dc3',
+                        maxWidth: '300px',
+                        color: '#666',
+                      }}>
+                        {selectedUser}
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>User Type</label>
+                      <div style={{
+                        padding: '6px 8px',
+                        backgroundColor: '#f0f0f0',
+                        fontSize: '13px',
+                        border: '1px solid #8b9dc3',
+                        maxWidth: '200px',
+                        color: '#666',
+                      }}>
+                        Dialog
+                      </div>
+                    </div>
+
+                    <div style={{ padding: '20px', marginTop: '20px', backgroundColor: '#fff3cd', border: '1px solid #ffc107', borderRadius: '4px' }}>
+                      <p style={{ margin: 0, fontSize: '13px', color: '#856404' }}>
+                        ℹ️ User address information is read-only in change mode. To modify address details, use the full user maintenance transaction.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Logon Data Tab */}
+                {passwordTab === 'logon' && (
+                  <div>
+                    <div style={{
+                      backgroundColor: '#c8d4e3',
+                      padding: '8px 12px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid #8b9dc3',
+                    }}>
+                      Change Password
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Username</label>
+                      <div style={{
+                        padding: '6px 8px',
+                        backgroundColor: '#f0f0f0',
+                        fontSize: '13px',
+                        border: '1px solid #8b9dc3',
+                        maxWidth: '300px',
+                        color: '#666',
+                      }}>
+                        {selectedUser}
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>New Password *</label>
+                      <input
+                        type="password"
+                        value={passwordForm.newPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                        required
+                        placeholder="Enter new password"
+                        style={{
+                          padding: '6px 8px',
+                          border: '1px solid #8b9dc3',
+                          backgroundColor: 'white',
+                          fontSize: '13px',
+                          maxWidth: '300px',
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Confirm Password *</label>
+                      <input
+                        type="password"
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                        required
+                        placeholder="Confirm new password"
+                        style={{
+                          padding: '6px 8px',
+                          border: '1px solid #8b9dc3',
+                          backgroundColor: 'white',
+                          fontSize: '13px',
+                          maxWidth: '300px',
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Password Status</label>
+                      <div style={{
+                        padding: '6px 8px',
+                        backgroundColor: '#e8eef7',
+                        fontSize: '13px',
+                        border: '1px solid #8b9dc3',
+                        maxWidth: '300px',
+                      }}>
+                        Will be set to: Productive password
+                      </div>
+                    </div>
+
+                    <div style={{
+                      backgroundColor: '#c8d4e3',
+                      padding: '8px 12px',
+                      marginTop: '24px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid #8b9dc3',
+                    }}>
+                      User Group for Authorization Check
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>User group</label>
+                      <div style={{
+                        padding: '6px 8px',
+                        backgroundColor: '#f0f0f0',
+                        fontSize: '13px',
+                        border: '1px solid #8b9dc3',
+                        maxWidth: '200px',
+                        color: '#666',
+                      }}>
+                        SUPER - User With All Authorizations
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* SNC Tab */}
+                {passwordTab === 'snc' && (
+                  <div style={{ padding: '20px', color: '#666', fontSize: '13px' }}>
+                    <div style={{
+                      backgroundColor: '#c8d4e3',
+                      padding: '8px 12px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid #8b9dc3',
+                    }}>
+                      Secure Network Communication (SNC)
+                    </div>
+                    <p>SNC settings for user: <strong>{selectedUser}</strong></p>
+                    <p style={{ marginTop: '12px' }}>No SNC configuration required for this user type.</p>
+                  </div>
+                )}
+
+                {/* Defaults Tab */}
+                {passwordTab === 'defaults' && (
+                  <div>
+                    <div style={{
+                      backgroundColor: '#c8d4e3',
+                      padding: '8px 12px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid #8b9dc3',
+                    }}>
+                      Validity Period
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Valid from</label>
+                      <div style={{
+                        padding: '6px 8px',
+                        backgroundColor: '#f0f0f0',
+                        fontSize: '13px',
+                        border: '1px solid #8b9dc3',
+                        maxWidth: '200px',
+                        color: '#666',
+                      }}>
+                        {new Date().toLocaleDateString('en-GB')}
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Valid through</label>
+                      <div style={{
+                        padding: '6px 8px',
+                        backgroundColor: '#f0f0f0',
+                        fontSize: '13px',
+                        border: '1px solid #8b9dc3',
+                        maxWidth: '200px',
+                        color: '#666',
+                      }}>
+                        31.12.9999
+                      </div>
+                    </div>
+
+                    <div style={{
+                      backgroundColor: '#c8d4e3',
+                      padding: '8px 12px',
+                      marginTop: '24px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid #8b9dc3',
+                    }}>
+                      Other Data
+                    </div>
+
+                    <div style={{ padding: '20px', color: '#666', fontSize: '13px' }}>
+                      <p>Additional user defaults are read-only in password change mode.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Parameters Tab */}
+                {passwordTab === 'parameters' && (
+                  <div>
+                    <div style={{
+                      backgroundColor: '#c8d4e3',
+                      padding: '8px 12px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid #8b9dc3',
+                    }}>
+                      User Parameters
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Time Zone</label>
+                      <div style={{
+                        padding: '6px 8px',
+                        backgroundColor: '#f0f0f0',
+                        fontSize: '13px',
+                        border: '1px solid #8b9dc3',
+                        maxWidth: '200px',
+                        color: '#666',
+                      }}>
+                        UTC
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '200px 1fr', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 500 }}>Date Format</label>
+                      <div style={{
+                        padding: '6px 8px',
+                        backgroundColor: '#f0f0f0',
+                        fontSize: '13px',
+                        border: '1px solid #8b9dc3',
+                        maxWidth: '200px',
+                        color: '#666',
+                      }}>
+                        DD.MM.YYYY
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Roles Tab */}
+                {passwordTab === 'roles' && (
+                  <div>
+                    <div style={{
+                      backgroundColor: '#c8d4e3',
+                      padding: '8px 12px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid #8b9dc3',
+                    }}>
+                      Assigned Roles
+                    </div>
+
+                    <div style={{ padding: '12px', backgroundColor: 'white', border: '1px solid #8b9dc3' }}>
+                      <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#666' }}>
+                        Current roles for user: <strong>{selectedUser}</strong>
+                      </p>
+                      <div style={{ fontSize: '13px', color: '#666' }}>
+                        Role assignments are read-only in password change mode.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Profiles Tab */}
+                {passwordTab === 'profiles' && (
+                  <div style={{ padding: '20px', color: '#666', fontSize: '13px' }}>
+                    <div style={{
+                      backgroundColor: '#c8d4e3',
+                      padding: '8px 12px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid #8b9dc3',
+                    }}>
+                      User Profiles
+                    </div>
+                    <p>User profiles define authorization objects and their values.</p>
+                    <p style={{ marginTop: '12px' }}>Profiles are automatically assigned based on roles.</p>
+                  </div>
+                )}
+
+                {/* Groups Tab */}
+                {passwordTab === 'groups' && (
+                  <div style={{ padding: '20px', color: '#666', fontSize: '13px' }}>
+                    <div style={{
+                      backgroundColor: '#c8d4e3',
+                      padding: '8px 12px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid #8b9dc3',
+                    }}>
+                      User Groups
+                    </div>
+                    <p>User group: <strong>SUPER</strong></p>
+                    <p style={{ marginTop: '12px' }}>User groups are used for authorization checks and reporting.</p>
+                  </div>
+                )}
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '24px' }}>
+              {/* Footer Buttons */}
+              <div style={{
+                backgroundColor: '#d4dce8',
+                padding: '12px 20px',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '8px',
+                borderTop: '1px solid #8b9dc3',
+              }}>
                 <button
                   type="button"
                   onClick={() => {
                     setShowPasswordModal(false);
+                    setPasswordTab('logon');
                     setPasswordForm({ newPassword: '', confirmPassword: '' });
                     setSelectedUser(null);
                   }}
                   style={{
-                    padding: '10px 20px',
-                    borderRadius: '4px',
-                    border: '1px solid #d9d9d9',
-                    backgroundColor: 'white',
+                    padding: '8px 20px',
+                    border: '1px solid #8b9dc3',
+                    backgroundColor: '#e8eef7',
                     cursor: 'pointer',
-                    fontSize: '14px',
+                    fontSize: '13px',
+                    fontWeight: 500,
                   }}
                 >
                   Cancel
@@ -474,17 +1257,16 @@ const UserManagement: React.FC = () => {
                 <button
                   type="submit"
                   style={{
-                    padding: '10px 20px',
-                    backgroundColor: '#fa8c16',
+                    padding: '8px 20px',
+                    backgroundColor: '#5b7fa6',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '4px',
                     cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 500,
+                    fontSize: '13px',
+                    fontWeight: 600,
                   }}
                 >
-                  Change Password
+                  Save
                 </button>
               </div>
             </form>

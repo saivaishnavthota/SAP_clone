@@ -7,7 +7,7 @@ from backend.api.routes import (
     auth, tickets, pm, mm, fi, users,
     sales, inventory, finance, purchasing, production,
     customers, vendors, business_partners,
-    reports, integration, system
+    reports, integration, system, pm_workflow
 )
 
 settings = get_settings()
@@ -34,6 +34,8 @@ app.include_router(users.router, prefix="/api/v1")
 app.include_router(pm.router, prefix="/api/v1")
 app.include_router(mm.router, prefix="/api/v1")
 app.include_router(fi.router, prefix="/api/v1")
+# PM Workflow (6-screen workflow)
+app.include_router(pm_workflow.router, prefix="/api/v1")
 
 # Register new SAP ERP API routes under /api
 # Sales & Orders Module

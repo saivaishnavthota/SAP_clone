@@ -40,6 +40,28 @@ from backend.models.fi_models import (
     ApprovalDecision,
 )
 
+# PM Workflow models (6-screen workflow)
+from backend.models.pm_workflow_models import (
+    WorkflowMaintenanceOrder,
+    WorkflowOperation,
+    WorkflowComponent,
+    WorkflowPurchaseOrder,
+    WorkflowGoodsReceipt,
+    WorkflowGoodsIssue,
+    WorkflowConfirmation,
+    WorkflowMalfunctionReport,
+    WorkflowDocumentFlow,
+    WorkflowCostSummary,
+    WorkflowOrderType,
+    WorkflowOrderStatus,
+    Priority as WorkflowPriority,
+    OperationStatus,
+    POType,
+    POStatus,
+    ConfirmationType,
+    DocumentType,
+)
+
 __all__ = [
     # Core
     "Ticket",
@@ -69,4 +91,23 @@ __all__ = [
     "FIApproval",
     "CostType",
     "ApprovalDecision",
+    # PM Workflow
+    "WorkflowMaintenanceOrder",
+    "WorkflowOperation",
+    "WorkflowComponent",
+    "WorkflowPurchaseOrder",
+    "WorkflowGoodsReceipt",
+    "WorkflowGoodsIssue",
+    "WorkflowConfirmation",
+    "WorkflowMalfunctionReport",
+    "WorkflowDocumentFlow",
+    "WorkflowCostSummary",
+    "WorkflowOrderType",
+    "WorkflowOrderStatus",
+    "WorkflowPriority",
+    "OperationStatus",
+    "POType",
+    "POStatus",
+    "ConfirmationType",
+    "DocumentType",
 ]

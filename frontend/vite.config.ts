@@ -12,11 +12,12 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 2003,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-      },
-    },
+    // Proxy disabled - using remote backend via VITE_API_URL env variable
+    // proxy: {
+    //   '/api': {
+    //     target: 'http://localhost:8000',
+    //     changeOrigin: true,
+    //   },
+    // },
   },
 })

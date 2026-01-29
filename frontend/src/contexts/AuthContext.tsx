@@ -52,8 +52,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     logger.info('Login attempt started', { username }, 'AUTH');
 
     try {
-      // Use fetch directly to avoid any axios issues
-      const response = await fetch('http://localhost:2004/api/v1/auth/login', {
+      // Use the environment variable for API URL
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:2004/api/v1';
+      console.log('🔗 Login API URL:', API_URL);
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

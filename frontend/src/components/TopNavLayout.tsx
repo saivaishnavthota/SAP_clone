@@ -12,12 +12,12 @@ const TopNavLayout: React.FC = () => {
   const { user, logout } = useAuth();
 
   const navItems = [
+    { label: '⚙️ Basis', path: '/user-management' },
     { label: 'My Home', path: '/dashboard' },
     { label: 'Plant Maintenance (PM)', path: '/pm' },
     { label: 'Materials Management (MM)', path: '/mm' },
     { label: 'Financial Accounting (FI)', path: '/fi' },
     { label: '🎫 Tickets', path: '/all-tickets' },
-    { label: '👥 User Management', path: '/user-management' },
   ];
 
   const handleLogout = () => {

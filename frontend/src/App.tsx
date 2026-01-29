@@ -14,6 +14,13 @@ import MM from './pages/MM';
 import FI from './pages/FI';
 import AllTickets from './pages/AllTickets';
 import UserManagement from './pages/UserManagement';
+import PMWorkflowHome from './pages/PMWorkflowHome';
+import PMWorkflowScreen1 from './pages/PMWorkflowScreen1';
+import PMWorkflowScreen2 from './pages/PMWorkflowScreen2';
+import PMWorkflowScreen3 from './pages/PMWorkflowScreen3';
+import PMWorkflowScreen4 from './pages/PMWorkflowScreen4';
+import PMWorkflowScreen5 from './pages/PMWorkflowScreen5';
+import PMWorkflowScreen6 from './pages/PMWorkflowScreen6';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -51,6 +58,13 @@ const AppRoutes: React.FC = () => {
         <Route path="fi" element={<FI />} />
         <Route path="all-tickets" element={<AllTickets />} />
         <Route path="user-management" element={<UserManagement />} />
+        <Route path="pm-workflow" element={<PMWorkflowHome />} />
+        <Route path="pm-workflow/screen1" element={<PMWorkflowScreen1 />} />
+        <Route path="pm-workflow/screen2/:orderNumber" element={<PMWorkflowScreen2 />} />
+        <Route path="pm-workflow/screen3" element={<PMWorkflowScreen3 />} />
+        <Route path="pm-workflow/screen4" element={<PMWorkflowScreen4 />} />
+        <Route path="pm-workflow/screen5/:orderNumber" element={<PMWorkflowScreen5 />} />
+        <Route path="pm-workflow/screen6/:orderNumber" element={<PMWorkflowScreen6 />} />
         <Route path="analytics" element={<div style={{padding: '20px'}}>Analytics Page</div>} />
         <Route path="billing" element={<div style={{padding: '20px'}}>Billing Page</div>} />
         <Route path="bpm" element={<div style={{padding: '20px'}}>Business Process Management</div>} />
